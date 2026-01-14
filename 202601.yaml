@@ -19,6 +19,7 @@ dns:
   ipv6: true
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
+  fake-ip-range6: fc00::/18 # 针对IPv6 环境
   respect-rules: true
   # 💡 专门解析机场节点域名的DNS，纯ip,且不使用加密DNS
   proxy-server-nameserver:
@@ -27,7 +28,7 @@ dns:
     - 119.29.29.29
     - 151.242.165.22:1053
   # 💡 优先使用运营商 DNS + 阿里 DNS，确保国内最稳
-  nameserver: ['223.5.5.5','211.138.13.66','udp://query.xiaohu.buzz:55553', 'udp://146.190.131.173:55553', 'udp://151.242.165.22:1053', 'tcp://151.242.165.22:55553', 'tcp://146.190.131.173:55553', 'tcp://192.155.81.6:1053']
+  nameserver: ['223.5.5.5','211.138.13.66', '[2400:3200::1]', '[2402:4e00::]','udp://query.xiaohu.buzz:55553', 'udp://146.190.131.173:55553', 'udp://151.242.165.22:1053', 'tcp://151.242.165.22:55553', 'tcp://146.190.131.173:55553', 'tcp://192.155.81.6:1053']
   # 💡 国外走机场加速 DNS 和 Google，防止 DNS 泄露
   fallback: [ 'https://dns.google/dns-query','https://1.1.1.1/dns-query']
   fallback-filter: {geoip: true, geoip-code: CN}
@@ -100,7 +101,7 @@ proxy-groups:
   - {name: 🎥 NETFLIX, type: select, proxies: [🇸🇬 狮城节点, 🇭🇰 香港节点, 🇯🇵 日本节点, 🇺🇲 美国节点, ⚡ 全局自动优选]}
   - {name: 💶 PayPal, type: select, proxies: [🇯🇵 日本节点, 🇭🇰 香港节点, 🇸🇬 狮城节点, 🇺🇲 美国节点, DIRECT]}
   - {name: 🐟 漏网之鱼, type: select, proxies: [🚀 主代理组,  🇸🇬 狮城节点, 🇯🇵 日本节点, 🇭🇰 香港节点, 🇨🇳 台湾节点,🇺🇲 美国节点, DIRECT]}
-# 7. 规则 (高精度分流 + 快速直连)
+# 7. 规则 
 rules:
   # 1. 防止DNS请求走代理 
   - DOMAIN,raw.githubusercontent.com,DIRECT
@@ -109,11 +110,12 @@ rules:
   - IP-CIDR,151.242.165.22/32,DIRECT,no-resolve
   - IP-CIDR,192.155.81.16/32,DIRECT,no-resolve
 
-  # 2. 强制流媒体关键字走解锁组 
- 
-  
-  # 3. 强制拦截广告 
+  # 2. 强制拦截广告 
   - RULE-SET,reject_domain,REJECT
+
+  # 3. 强制 YouTube App 降级到 TCP (解决限速/跳画质)
+  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,googlevideo)),REJECT
+  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,youtube)),REJECT
   
   # 4. 视频与 AI (域名级匹配，速度最快)
   
@@ -141,8 +143,8 @@ rules:
   - RULE-SET,cn_domain,DIRECT
   - RULE-SET,cn_ip,DIRECT,no-resolve  # 💡 加上 no-resolve 避免为了判定 IP 而产生多余 DNS 解析延迟
     
-  # 7. 局域网
+  # 6. 局域网
   - GEOIP,LAN,DIRECT
   
-  # 8. 全局兜底
+  # 7. 全局兜底
   - MATCH, 🐟 漏网之鱼
