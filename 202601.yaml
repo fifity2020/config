@@ -100,6 +100,7 @@ proxy-groups:
   - {name: 📲 Telegram, type: select, proxies: [🇭🇰 香港节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🇺🇲 美国节点, ⚡ 全局自动优选]}
   - {name: 🎥 NETFLIX, type: select, proxies: [🇸🇬 狮城节点, 🇭🇰 香港节点, 🇯🇵 日本节点, 🇺🇲 美国节点, ⚡ 全局自动优选]}
   - {name: 💶 PayPal, type: select, proxies: [🇯🇵 日本节点, 🇭🇰 香港节点, 🇸🇬 狮城节点, 🇺🇲 美国节点, DIRECT]}
+  - {name: 广告拦截, type: select, proxies: [REJECT, DIRECT]}
   - {name: 🐟 漏网之鱼, type: select, proxies: [🚀 主代理组,  🇸🇬 狮城节点, 🇯🇵 日本节点, 🇭🇰 香港节点, 🇨🇳 台湾节点,🇺🇲 美国节点, DIRECT]}
 # 7. 规则 
 rules:
@@ -111,7 +112,7 @@ rules:
   - IP-CIDR,192.155.81.16/32,DIRECT,no-resolve
 
   # 2. 强制拦截广告 
-  - RULE-SET,reject_domain,REJECT
+  - RULE-SET,reject_domain,广告拦截
 
   # 3. 强制 YouTube App 降级到 TCP (解决限速/跳画质)
   - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,googlevideo)),REJECT
