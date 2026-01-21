@@ -10,4 +10,8 @@ DOMAIN-SUFFIX,ofiii.com
 DOMAIN-SUFFIX,livednow.com
 DOMAIN-SUFFIX,hinet.net
 DOMAIN-SUFFIX,infini.money
+# IP规则 
+
+IP-CIDR,123.51.231.132/32
+IP-CIDR,60.250.121.103/32
 
