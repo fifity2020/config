@@ -37,17 +37,18 @@ dns:
     # 移除 system，防止公网查询回落导致污染，内网由 policy 专管
 
   # === 核心策略: DNS 分流 (Nameserver Policy) ===
-  # 这一步决定了内网稳不稳
-  nameserver-policy:
+   nameserver-policy:
     # 1. 公司内网 -> 强制走系统 DNS (绝不发给阿里)
     "oa.corp.com": system
     "+.corp.com": system   # 假设你公司域名后缀是 corp.com
     "+.internal": system
-    
+   
     # 2. Windows 连通性检测 -> 走系统 DNS
     "*.msftncsi.com": system
     "*.msftconnecttest.com": system
-    
+    "pool.ntp.org": system
+    "time.*.com": system
+    "stun.*": system
     # 3. 国外常见大厂 -> 阿里/腾讯 DoH (加快解析)
     "geosite:cn,private,apple,microsoft":
       - https://dns.alidns.com/dns-query
