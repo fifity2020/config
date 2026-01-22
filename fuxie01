@@ -23,7 +23,12 @@ dns:
     - '*.msftncsi.com'    # Windows 连通性检测
     - 'msftconnecttest.com'
     - '+.stun.*'          # WebRTC/语音通话
-  
+  # --- NTP 时间同步 ---
+    - pool.ntp.org
+    - time.windows.com
+    - time.nist.gov
+    - time.apple.com
+
   # 默认 DNS (用于解析国内域名)
   default-nameserver:
     - system              # 【关键】优先询问系统DNS，解决内网解析
