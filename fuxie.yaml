@@ -1,11 +1,9 @@
-# 1. 基础设置 
-allow-lan: false        # 关闭局域网共享，防止端口暴露
-bind-address: "*"
+# Mihomo Party 专用覆写整合版
+allow-lan: false
 tcp-concurrent: true
 log-level: info
-ipv6: false             # 办公网建议关闭 IPv6
+ipv6: false
 
-# 2. DNS 设置 (办公网核心)
 dns:
   enable: true
   listen: 0.0.0.0:1053
@@ -13,176 +11,94 @@ dns:
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
   respect-rules: true
-  
-  # === Fake-IP 过滤 (返回真实IP) ===
   fake-ip-filter:
     - '+.lan'
     - '+.local'
     - '+.internal'
-    - 'oa.corp.com'       # 公司内网域名
-    - '*.msftncsi.com'    # Windows 连通性检测
+    - 'oa.corp.com'
+    - '*.msftncsi.com'
     - 'msftconnecttest.com'
-    - '+.stun.*'          # WebRTC/语音通话
-  # --- NTP 时间同步 ---
-    - pool.ntp.org
-    - time.windows.com
-    - time.nist.gov
-    - time.apple.com
-
-  # 默认 DNS (用于解析国内域名)
+    - '+.stun.*'
   default-nameserver:
-    - system              # 【关键】优先询问系统DNS，解决内网解析
+    - system
     - 223.5.5.5
-    - 119.29.29.29
-
-  # 主要 DNS 
   nameserver:
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
-    # 移除 system，防止公网查询回落导致污染，内网由 policy 专管
+  nameserver-policy:
+    'geosite:private,cn': [223.5.5.5, 119.29.29.29]
+    'oa.corp.com': system
+    '+.corp.com': system
+    '+.internal': system
+    '*.msftncsi.com': system
+    '*.msftconnecttest.com': system
 
-  # === 核心策略: DNS 分流 (Nameserver Policy) ===
-   nameserver-policy:
-    # 1. 公司内网 -> 强制走系统 DNS (绝不发给阿里)
-    "oa.corp.com": system
-    "+.corp.com": system   # 假设你公司域名后缀是 corp.com
-    "+.internal": system
-   
-    # 2. Windows 连通性检测 -> 走系统 DNS
-    "*.msftncsi.com": system
-    "*.msftconnecttest.com": system
-    "pool.ntp.org": system
-    "time.*.com": system
-    "stun.*": system
-    # 3. 国外常见大厂 -> 阿里/腾讯 DoH (加快解析)
-    "geosite:cn,private,apple,microsoft":
-      - https://dns.alidns.com/dns-query
-      - https://doh.pub/dns-query
-
-  # 备用/国外 DNS
-  fallback:
-    - https://1.1.1.1/dns-query
-    - https://8.8.8.8/dns-query
-  
-  fallback-filter:
-    geoip: true
-    geoip-code: CN
-    ipcidr:
-      - 240.0.0.0/4
-
-# 3. 域名嗅探
 sniffer:
   enable: true
-  parse-pure-ip: true     # 开启对纯 IP 的嗅探
+  parse-pure-ip: true
   sniff:
     HTTP: { ports: [80, 8080-8880], override-destination: true }
     TLS: { ports: [443, 8443] }
     QUIC: { ports: [443, 8443] }
   skip-domain:
-    - "Mijia Cloud"
-    - "+.push.apple.com"
-
-# 4. 规则集定义
-rule-anchor:
-  ip: &ip {type: http, interval: 86400, behavior: ipcidr, format: mrs}
-  domain: &domain {type: http, interval: 86400, behavior: domain, format: mrs}
-  class: &class {type: http, interval: 86400, behavior: classical, format: text}
+    - 'Mijia Cloud'
+    - '+.push.apple.com'
 
 rule-providers:
-  reject_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs"}
-  ai_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs" }
-  youtube_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"}
-  google_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}
-  github_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}
-  telegram_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"}
-  netflix_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/netflix.mrs"}
-  google_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}
-  microsoft_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/microsoft.mrs"}
-  apple_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple.mrs"}
-  tiktok_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tiktok.mrs"}
-  geolocation-!cn: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/geolocation-!cn.mrs"}
-  cn_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs"}
-  cn_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/cn.mrs"}
-  telegram_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/telegram.mrs"}
+  reject_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs"}
+  ai_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs" }
+  youtube_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"}
+  google_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}
+  github_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}
+  telegram_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"}
+  netflix_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/netflix.mrs"}
+  microsoft_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/microsoft.mrs"}
+  apple_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple.mrs"}
+  feishu_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/feishu.mrs" }
+  slack_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/slack.mrs" }
+  zoom_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/zoom.mrs" }
+  cn_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs"}
+  cn_ip: { type: http, interval: 86400, behavior: ipcidr, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/cn.mrs"}
+  telegram_ip: { type: http, interval: 86400, behavior: ipcidr, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/telegram.mrs"}
+  geolocation-!cn: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/geolocation-!cn.mrs"}
 
-# 5. 策略组
 proxy-groups:
-  # ==============================
-  # 1. 核心控制组 (Main Control)
-  # ==============================
-  # 主入口：平时建议选“⚡ 全局自动优选”，需要特定地区时手动切
   - { name: 🚀 主代理组, type: select, proxies: [⚡ 全局自动优选, 🇭🇰 香港节点, 🇸🇬 狮城节点, 🇯🇵 日本节点, 🇺🇲 美国节点, DIRECT] }
-
-  # 自动优选：排除官网、剩余流量等无效节点，并在所有节点中选最快的
   - { name: ⚡ 全局自动优选, type: url-test, include-all: true, filter: "^(?!.*(剩余|到期|官网|过期|Traffic|Website|Reset)).*", url: "http://www.gstatic.com/generate_204", interval: 300, tolerance: 50}
-
-  # ==============================
-  # 2. 地区自动组 (Region Auto)
-  # ==============================
-  # 逻辑：自动抓取对应地区节点，并选出最快的一个
   - { name: 🇭🇰 香港节点, type: url-test, include-all: true, filter: "(?i)HK|香港|HongKong", interval: 300, tolerance: 50, lazy: true}
   - { name: 🇯🇵 日本节点, type: url-test, include-all: true, filter: "(?i)JP|日本|Japan", interval: 300, tolerance: 50, lazy: true}
   - { name: 🇸🇬 狮城节点, type: url-test, include-all: true, filter: "(?i)SG|新加坡|Singapore", interval: 300, tolerance: 50, lazy: true}
   - { name: 🇺🇲 美国节点, type: url-test, include-all: true, filter: "(?i)US|美国|United States", interval: 300, tolerance: 50, lazy: true}
-
-  # ==============================
-  # 3. 应用策略组 (Applications)
-  # ==============================
-  # AI 服务：推荐优先走美国或日本，更稳定
   - { name: 🤖 AI, type: select, proxies: [🇺🇲 美国节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🚀 主代理组] }
-
-  # 流媒体
+  - { name: 💼 办公协作, type: select, proxies: [DIRECT, 🇭🇰 香港节点, 🇸🇬 狮城节点, 🚀 主代理组] }
+  - { name: 🕊️ 飞书/Lark, type: select, proxies: [DIRECT, 🚀 主代理组] }
   - { name: 📺 YouTube, type: select, proxies: [🚀 主代理组, ⚡ 全局自动优选] }
   - { name: 🎥 NETFLIX, type: select, proxies: [🇸🇬 狮城节点, 🇭🇰 香港节点, 🚀 主代理组] }
-
-  # Telegram：由于必须走代理，默认指向主代理组
   - { name: 📲 Telegram, type: select, proxies: [🚀 主代理组, ⚡ 全局自动优选] }
-  # Google服务：
-  - { name: Google, type: select, proxies: [台湾节点,日本节点,新加坡节点,香港节点,美国节点] }
- 
-  # 【新增】Apple 服务：默认直连 (DIRECT)，加速 App Store 和系统更新
   - { name: 🍎 Apple, type: select, proxies: [DIRECT, 🚀 主代理组] }
-
-  # 【新增】微软服务：默认直连 (DIRECT)，防止 Outlook/Teams 误报异地登录或卡顿
   - { name: 🪟 Microsoft, type: select, proxies: [DIRECT, 🚀 主代理组] }
-
-  # ==============================
-  # 4. 功能与兜底 (Utility & Final)
-  # ==============================
-  # 【新增】广告拦截：默认拒绝 (REJECT)，如果想临时关掉拦截，可手动选 DIRECT
+  - { name: Google, type: select, proxies: [🚀 主代理组, 🇭🇰 香港节点, 🇯🇵 日本节点] }
   - { name: 广告拦截, type: select, proxies: [REJECT, DIRECT] }
-
-  # 没有命中规则的流量，默认走代理
   - { name: 🐟 漏网之鱼, type: select, proxies: [🚀 主代理组, DIRECT] }
 
-# 6. 规则
 rules:
-  # 拦截广告
+  - GEOIP,LAN,DIRECT,no-resolve
   - RULE-SET,reject_domain,广告拦截
-  
-  # 解决 YouTube 限速 (QUIC 降级 TCP)
   - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,googlevideo)),REJECT
-  
-  # 特殊应用分流
+  - RULE-SET,feishu_domain,🕊️ 飞书/Lark
+  - RULE-SET,zoom_domain,💼 办公协作
+  - RULE-SET,slack_domain,💼 办公协作
   - RULE-SET,ai_domain,🤖 AI
   - RULE-SET,youtube_domain,📺 YouTube
   - RULE-SET,netflix_domain,🎥 NETFLIX
   - RULE-SET,telegram_domain,📲 Telegram
   - RULE-SET,telegram_ip,📲 Telegram
-  
-  # 系统/生产力 (优先直连，可选代理)
-  - RULE-SET,apple_domain,🍎 Apple
   - RULE-SET,google_domain,Google
   - RULE-SET,github_domain,🚀 主代理组
+  - RULE-SET,apple_domain,🍎 Apple
   - RULE-SET,microsoft_domain,🪟 Microsoft
-  
-  
-  # 国内直连
   - RULE-SET,cn_domain,DIRECT
   - RULE-SET,cn_ip,DIRECT,no-resolve
-  - GEOIP,LAN,DIRECT,no-resolve
   - GEOIP,CN,DIRECT,no-resolve
-
-  # 兜底
   - RULE-SET,geolocation-!cn,🚀 主代理组
   - MATCH, 🐟 漏网之鱼
