@@ -1,0 +1,209 @@
+# 1. 基础设置
+allow-lan: true         # 开启局域网共享，方便电视、手机等设备通过电脑翻墙
+tcp-concurrent: true
+log-level: info
+ipv6: true              # 【核心】开启内核 IPv6 支持
+
+# 2. DNS 设置
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  ipv6: true
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  respect-rules: true
+  
+  # 1. 内网和敏感协议不走 Fake-IP
+  fake-ip-filter:
+    - '+.lan'
+    - '+.local'
+    - '+.internal'
+    - '+.stun.*'
+    - '+.msftncsi.com'
+    - 'msftconnecttest.com'
+    - 'xbox.*.microsoft.com'
+    - '+.ntp.org'
+    - '+.worker.dev' # 排除一些边缘服务，防止解析循环
+
+  # 2. 默认解析服务器只用国内公共解析，严禁使用 system
+  # 理由：system 可能会包含运营商下发的 IPv6 DNS，引起DNS泄露
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+  # 3. 主解析服务器使用 DoH，加密传输防止被劫持
+  nameserver:
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+
+  # 4. 强分流策略
+  nameserver-policy:
+    # 国内域名走国内 DNS
+    'geosite:cn,private': [223.5.5.5, 119.29.29.29]
+    # 苹果和微软服务走国内 DNS 拿到最快的 CDN 节点
+    'geosite:apple,microsoft': [223.5.5.5, 119.29.29.29]
+    # 强制让国外域名使用 fallback，防止国内解析拿到被污染的 IPv6
+    'geosite:geolocation-!cn': [https://1.1.1.1/dns-query, https://8.8.8.8/dns-query]
+
+  # 5. 备用 DNS (仅当 nameserver 无法解析时)
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://8.8.8.8/dns-query
+    - tls://8.8.4.4
+  
+  # 6. 强制校验，如果国外 DNS 返回的是国内 IP，直接丢弃
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+
+# 3. 域名嗅探
+sniffer:
+  enable: true
+  parse-pure-ip: true
+  sniff:
+    HTTP: { ports: [80, 8080-8880], override-destination: true }
+    TLS: { ports: [443, 8443] }
+    QUIC: { ports: [443, 8443] }
+  skip-domain:
+    - 'Mijia Cloud'
+    - '+.push.apple.com'
+    - '+.apple.com'            # 苹果服务在嗅探下偶尔会有握手延迟
+    - '*.baidu.com'            # 国内大厂通常不需要嗅探，减少开销
+
+# 4. 规则集 (保持 MRS 高效格式)
+rule-providers:
+  reject_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs"}
+  ai_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs" }
+  youtube_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"}
+  google_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}
+  github_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}
+  telegram_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"}
+  netflix_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/netflix.mrs"}
+  microsoft_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/microsoft.mrs"}
+  apple_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple.mrs"}
+  cn_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs"}
+  cn_ip: { type: http, interval: 86400, behavior: ipcidr, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/cn.mrs"}
+  geolocation-!cn: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/geolocation-!cn.mrs"}
+
+# 5. 策略组 (家庭版增加流媒体与游戏支持)
+proxy-groups:
+  - { name: 🚀 主代理组, type: select, proxies: [⚡ 全局自动优选, 🇭🇰 香港节点, 🇸🇬 狮城节点, 🇯🇵 日本节点, 🇺🇲 美国节点, DIRECT] }
+  - { name: ⚡ 全局自动优选, type: url-test, include-all: true, filter: "^(?!.*(剩余|到期|官网|过期|Traffic|Website|Reset)).*", url: "http://www.gstatic.com/generate_204", interval: 300, tolerance: 50}
+  - { name: 🇭🇰 香港节点, type: url-test, include-all: true, filter: "(?i)HK|香港|HongKong", interval: 300, tolerance: 50, lazy: true}
+  - { name: 🇯🇵 日本节点, type: url-test, include-all: true, filter: "(?i)JP|日本|Japan", interval: 300, tolerance: 50, lazy: true}
+  - { name: 🇸🇬 狮城节点, type: url-test, include-all: true, filter: "(?i)SG|新加坡|Singapore", interval: 300, tolerance: 50, lazy: true}
+  - { name: 🇺🇲 美国节点, type: url-test, include-all: true, filter: "(?i)US|美国|United States", interval: 300, tolerance: 50, lazy: true}
+  - { name: 🤖 AI, type: select, proxies: [🇺🇲 美国节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🚀 主代理组] }
+  - { name: 📺 国际流媒体, type: select, proxies: [🇸🇬 狮城节点, 🇭🇰 香港节点, 🇯🇵 日本节点, 🚀 主代理组] }
+  - { name: 🎮 游戏平台, type: select, proxies: [DIRECT, 🚀 主代理组, 🇭🇰 香港节点] }
+  - { name: 🍎 Apple, type: select, proxies: [DIRECT, 🚀 主代理组] }
+  - { name: 🪟 Microsoft, type: select, proxies: [DIRECT, 🚀 主代理组] }
+  - { name: 🚫 广告拦截, type: select, proxies: [REJECT, DIRECT] }
+  - { name: 🐟 漏网之鱼, type: select, proxies: [🚀 主代理组, DIRECT] }
+
+# 6. 规则
+rules:
+  - GEOIP,LAN,DIRECT,no-resolve
+  - RULE-SET,reject_domain,🚫 广告拦截
+# 自定义iptv分流
+  - DOMAIN-SUFFIX,4gtv.tv,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,4gtvfree-mozai.4gtv.tv,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,ofissaifreepc.akamaized.net,🇨🇳 台湾节点
+  - DOMAIN-KEYWORD,hamivideo,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,cdn.hinet.net,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,akamaized.net,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,163189.xyz,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,litv.tv,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,ofiii.com,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,livednow.com,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,cdn.hinet.net,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,api2.4gtv.tv,🇨🇳 台湾节点
+  - DOMAIN-SUFFIX,infini.money,🇨🇳 台湾节点
+  
+  - DOMAIN-SUFFIX,astro.com,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,pendy.dpdns.org,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,docker.livednow.dpdns.org,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,4gtv.livednow.dpdns.org,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,iptv.vip-tptv.xyzg,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,migu.8plus.eu.orgg,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,iptv.mydiver.eu.org,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,858.qzz.io,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,bee.tzh911.qzz.io,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,cluster-cz5nqyh5nreq6ua6gaqd7okl7o.cloudworkstations.dev,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,qzz.io,🇺🇲 美国节点 
+  - DOMAIN-SUFFIX,diver.eu.org,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,wrod.diver.eu.org,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,judy.xx.kg,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,8plus.eu.org,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,ru8.dpdns.org,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,vip-tptv.xyz,🇺🇲 美国节点 
+  - DOMAIN-SUFFIX,hudsonvalleyhost.com,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,r2.hfyrw.com,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,bee.tzh911.qzz.io,🇺🇲 美国节点
+  - DOMAIN-SUFFIX,wrod.diver.eu.org,🇺🇲 美国节点
+
+  - DOMAIN-KEYWORD,astro,🇸🇬 狮城节点
+  - DOMAIN-KEYWORD,wavve,🇸🇬 狮城节点
+  - DOMAIN-SUFFIX,starhubgo.com,🇸🇬 狮城节点
+  - DOMAIN-SUFFIX,stream-link.org,🇺🇲 狮城节点
+  ##bingcha
+  - DOMAIN-SUFFIX,188766.xyz,🇸🇬 狮城节点
+
+  ##gather
+  - DOMAIN-SUFFIX,iill.top,🇸🇬 狮城节点
+  
+  - DOMAIN-SUFFIX,tvb.com,🇭🇰 香港节点
+  - DOMAIN-SUFFIX,hrtn.net,🇭🇰 香港节点
+  - DOMAIN-SUFFIX,edgeware.tvb.com,🇭🇰 香港节点
+  - DOMAIN-SUFFIX,hoy.tv,🇭🇰 香港节点
+  - DOMAIN-SUFFIX,rthk.tv,🇭🇰 香港节点
+
+  - IP-CIDR,50.7.158.194/32,🇯🇵 日本节点
+  - IP-CIDR,123.51.231.132/32,🇨🇳 台湾节点
+  - IP-CIDR,60.250.121.103/32,🇨🇳 台湾节点
+
+  - DOMAIN-SUFFIX,lioncdn.net, 虎云
+  - DOMAIN-SUFFIX,passwdword.xyz, 虎云
+ 
+  ## TPTV
+  - DOMAIN-SUFFIX,mobaibox.com,直连
+  - IP-CIDR,183.207.0.0/16,DIRECT,no-resolve
+
+  ## YSP
+  - DOMAIN-SUFFIX,cctv.cn,直连
+  - DOMAIN-SUFFIX,yangshipin.cn,直连
+
+  ## ITV
+  - DOMAIN-SUFFIX,dnsany.com,直连
+  - DOMAIN-SUFFIX,cmvideo.cn,直连
+  - DOMAIN-SUFFIX,chinamobile.com,直连
+
+  ## 凤凰秀
+   - DOMAIN-KEYWORD,fengshows,直连
+
+# YouTube 特殊处理 (UDP/QUIC 降级)
+  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,googlevideo)),REJECT
+  
+#   家庭应用分流
+  - RULE-SET,ai_domain,🤖 AI
+  - RULE-SET,youtube_domain,📺 国际流媒体
+  - RULE-SET,netflix_domain,📺 国际流媒体
+  - RULE-SET,telegram_domain,🚀 主代理组
+  - RULE-SET,google_domain,🚀 主代理组
+  - RULE-SET,github_domain,🚀 主代理组
+  
+# 系统与游戏
+  - RULE-SET,apple_domain,🍎 Apple
+  - RULE-SET,microsoft_domain,🪟 Microsoft
+  - GEOSITE,category-games,🎮 游戏平台
+  
+# 国内直连
+  - RULE-SET,cn_domain,DIRECT
+  - RULE-SET,cn_ip,DIRECT,no-resolve
+  - GEOIP,CN,DIRECT,no-resolve
+
+# 兜底
+  - RULE-SET,geolocation-!cn,🚀 主代理组
+  - MATCH, 🐟 漏网之鱼
