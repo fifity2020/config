@@ -96,6 +96,7 @@ rule-providers:
   github_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}
   telegram_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"}
   netflix_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/netflix.mrs"}
+  google_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}
   microsoft_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/microsoft.mrs"}
   apple_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple.mrs"}
   tiktok_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tiktok.mrs"}
@@ -134,9 +135,11 @@ proxy-groups:
   - { name: 📺 YouTube, type: select, proxies: [🚀 主代理组, ⚡ 全局自动优选] }
   - { name: 🎥 NETFLIX, type: select, proxies: [🇸🇬 狮城节点, 🇭🇰 香港节点, 🚀 主代理组] }
 
-  # 【新增】Telegram：由于必须走代理，默认指向主代理组
+  # Telegram：由于必须走代理，默认指向主代理组
   - { name: 📲 Telegram, type: select, proxies: [🚀 主代理组, ⚡ 全局自动优选] }
-
+  # Google服务：
+  - { name: Google, type: select, proxies: [台湾节点,日本节点,新加坡节点,香港节点,美国节点] }
+ 
   # 【新增】Apple 服务：默认直连 (DIRECT)，加速 App Store 和系统更新
   - { name: 🍎 Apple, type: select, proxies: [DIRECT, 🚀 主代理组] }
 
@@ -169,6 +172,7 @@ rules:
   
   # 系统/生产力 (优先直连，可选代理)
   - RULE-SET,apple_domain,🍎 Apple
+  - RULE-SET,google_domain,Google
   - RULE-SET,github_domain,🚀 主代理组
   - RULE-SET,microsoft_domain,🪟 Microsoft
   
