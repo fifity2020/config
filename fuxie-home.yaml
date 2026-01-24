@@ -13,51 +13,34 @@ dns:
   fake-ip-range: 198.18.0.1/16
   respect-rules: true
   
-  # 1. 内网和敏感协议不走 Fake-IP
-  fake-ip-filter:
-    - '+.lan'
-    - '+.local'
-    - '+.internal'
-    - '+.stun.*'
-    - '+.msftncsi.com'
-    - 'msftconnecttest.com'
-    - 'xbox.*.microsoft.com'
-    - '+.ntp.org'
-    - '+.worker.dev' # 排除一些边缘服务，防止解析循环
+  # === 关键修正 1: 增加预解析 DNS，防止启动时连不上 DoH ===
+  proxy-server-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
 
-  # 2. 默认解析服务器只用国内公共解析，严禁使用 system
-  # 理由：system 可能会包含运营商下发的 IPv6 DNS，引起DNS泄露
+  # === 关键修正 2: 优先使用系统 DNS 和阿里公共解析作为基础 ===
   default-nameserver:
     - 223.5.5.5
     - 119.29.29.29
 
-  # 3. 主解析服务器使用 DoH，加密传输防止被劫持
+  # === 关键修正 3: 全部使用 HTTPS (DoH) 协议，避开 853 端口错误 ===
   nameserver:
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
 
-  # 4. 强分流策略
   nameserver-policy:
-    # 国内域名走国内 DNS
-    'geosite:cn,private': [223.5.5.5, 119.29.29.29]
-    # 苹果和微软服务走国内 DNS 拿到最快的 CDN 节点
-    'geosite:apple,microsoft': [223.5.5.5, 119.29.29.29]
-    # 强制让国外域名使用 fallback，防止国内解析拿到被污染的 IPv6
-    'geosite:geolocation-!cn': [https://1.1.1.1/dns-query, https://8.8.8.8/dns-query]
+    'geosite:private,cn': [223.5.5.5, 119.29.29.29]
+    'geosite:microsoft,apple': [223.5.5.5, 119.29.29.29]
 
-  # 5. 备用 DNS (仅当 nameserver 无法解析时)
   fallback:
     - https://1.1.1.1/dns-query
     - https://8.8.8.8/dns-query
-    - tls://8.8.4.4
-  
-  # 6. 强制校验，如果国外 DNS 返回的是国内 IP，直接丢弃
+
   fallback-filter:
     geoip: true
     geoip-code: CN
     ipcidr:
       - 240.0.0.0/4
-
 # 3. 域名嗅探
 sniffer:
   enable: true
