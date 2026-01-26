@@ -21,11 +21,28 @@ dns:
   fake-ip-range: 198.18.0.1/16
   fake-ip-range6: fc00::/18 # 针对IPv6 环境
   respect-rules: true
-  # 💡 专门解析机场节点域名的DNS
-  proxy-server-nameserver: [udp://query.xiaohu.buzz:55553', 'udp://146.190.131.173:55553', 'udp://query.huyun-query.com:55553', 'tcp://query.huyun-query.com:55553', 'udp://151.242.165.22:1053', 'tcp://151.242.165.22:55553', 'tcp://146.190.131.173:55553', 'tcp://192.155.81.6:1053', '223.5.5.5', '211.138.13.66']
+   proxy-server-nameserver: 
+   - udp://query.xiaohu.buzz:55553
+   - udp://146.190.131.173:55553
+   - udp://query.huyun-query.com:55553
+   - tcp://query.huyun-query.com:55553
+   - udp://151.242.165.22:1053
+   - tcp://151.242.165.22:55553
+   - tcp://146.190.131.173:55553
+   - tcp://192.155.81.6:1053
+   - 223.5.5.5
+   - 211.138.13.66
      
   # 💡 使用运营商 DNS 
-  nameserver: [udp://query.xiaohu.buzz:55553', 'udp://146.190.131.173:55553', 'udp://query.huyun-query.com:55553', 'tcp://query.huyun-query.com:55553', 'udp://151.242.165.22:1053', 'tcp://151.242.165.22:55553', 'tcp://146.190.131.173:55553', 'tcp://192.155.81.6:1053']
+  nameserver: 
+   - udp://query.xiaohu.buzz:55553
+   - udp://146.190.131.173:55553
+   - udp://query.huyun-query.com:55553
+   - tcp://query.huyun-query.com:55553
+   - udp://151.242.165.22:1053
+   - tcp://151.242.165.22:55553
+   - tcp://146.190.131.173:55553
+   - tcp://192.155.81.6:1053
    
   # 💡 国外走机场加速 DNS 和 Google，防止 DNS 泄露
   fallback: [ 'https://dns.google/dns-query','https://1.1.1.1/dns-query']
