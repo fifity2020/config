@@ -1,1 +1,1 @@
-自用clash配置
+自用openclash\clash-party\shadowsocket配置
