@@ -1,4 +1,4 @@
-# Mihomo Party 专用覆写整合版
+# Mihomo Party 专用覆写办公版
 allow-lan: false
 tcp-concurrent: true
 log-level: info
