@@ -1,0 +1,263 @@
+# 1. 基础设置
+mixed-port: 7890
+allow-lan: true
+ipv6: true
+log-level: info
+unified-delay: true
+tcp-concurrent: true
+
+# 2. 嗅探设置 (增强分流准确度，IPV6不开)
+#sniffer:
+ # enable: true
+ # sniff:
+ #  TLS: {ports: [443, 8443]}
+ #  HTTP: {ports: [80, 8080-8880]}
+
+# 3. DNS 加速 (采用了机场服务商DNS)
+dns:
+  enable: true
+  ipv6: true
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-range6: fc00::/18 # 针对IPv6 环境
+  respect-rules: true
+   proxy-server-nameserver: 
+   - udp://query.xiaohu.buzz:55553
+   - udp://146.190.131.173:55553
+   - udp://query.huyun-query.com:55553
+   - tcp://query.huyun-query.com:55553
+   - udp://151.242.165.22:1053
+   - tcp://151.242.165.22:55553
+   - tcp://146.190.131.173:55553
+   - tcp://192.155.81.6:1053
+   - 223.5.5.5
+   - 211.138.13.66
+     
+  # 💡 使用运营商 DNS 
+  nameserver: 
+   - udp://query.xiaohu.buzz:55553
+   - udp://146.190.131.173:55553
+   - udp://query.huyun-query.com:55553
+   - tcp://query.huyun-query.com:55553
+   - udp://151.242.165.22:1053
+   - tcp://151.242.165.22:55553
+   - tcp://146.190.131.173:55553
+   - tcp://192.155.81.6:1053
+   
+  # 💡 国外走机场加速 DNS 和 Google，防止 DNS 泄露
+  fallback: [ 'https://dns.google/dns-query','https://1.1.1.1/dns-query']
+  fallback-filter: {geoip: true, geoip-code: CN}
+  # 💡 解决插件检测异常：让流媒体域名不进入 Fake-IP 模式
+  fake-ip-filter: ['+.netflix.com', '+.netflix.net', '+.nflxvideo.net', '+.disneyplus.com', '+.googlevideo.com', '+.youtube.com', 'msftconnecttest.com', 'msftncsi.com', 'cpas.google', 'connectivitycheck.gstatic.com']
+  # 💡 咪咕方案
+  hosts:
+    'studentlive.migucloud.com' : '39.134.142.147'    
+
+# 4. 机场订阅
+proxy-providers:
+  Airport1:
+    url: "我的订阅" 
+    type: http
+    interval: 7200
+    path: ./proxies/airport1.yaml
+    health-check: {enable: true, url: "http://www.gstatic.com/generate_204", interval: 600}
+
+# 4. 远程规则集 (只挑选最稳的 4 个)
+# 💡 定义锚点模板
+rule-anchor:
+  ip: &ip {type: http, interval: 86400, behavior: ipcidr, format: mrs}
+  domain: &domain {type: http, interval: 86400, behavior: domain, format: mrs}
+  class: &class {type: http, interval: 86400, behavior: classical, format: text}
+# 💡 规则组
+rule-providers:
+  private_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}
+  proxylite: { <<: *class, url: "https://raw.githubusercontent.com/qichiyuhub/rule/refs/heads/main/proxy.list"}
+  reject_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs"}
+  ai_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs" }
+  youtube_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"}
+  google_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}
+  github_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}
+  telegram_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"}
+  netflix_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/netflix.mrs"}
+  paypal_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/paypal.mrs"}
+  onedrive_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/onedrive.mrs"}
+  microsoft_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/microsoft.mrs"}
+  apple_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple.mrs"}
+  speedtest_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/ookla-speedtest.mrs"}
+  tiktok_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/tiktok.mrs"}
+  geolocation-!cn: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/geolocation-!cn.mrs"}
+  cn_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs"}
+  
+  private_ip: {<<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/private.mrs"}
+  cn_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/cn.mrs"}
+  google_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/google.mrs"}
+  telegram_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/telegram.mrs"}
+  netflix_ip: { <<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/netflix.mrs"}
+  apple_ip: {<<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo-lite/geoip/apple.mrs"}
+
+
+# 6. 代理分组
+proxy-groups:
+  - {name: 🚀 默认代理, type: select, proxies: [🔯 香港故转, 🔯 日本故转, 🔯 台湾故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🇺🇲 美国节点, 🌐 全部节点, DIRECT]}
+  - {name: ♻️ 自动选择, type: url-test, include-all: true, tolerance: 20, interval: 300, filter: "^((?!(直连)).)*$"}
+  - {name: 🌐 全部节点, type: select, include-all: true}
+  
+  # 地区自动选路组 (url-test)
+  - {name: 🇭🇰 香港节点, type: url-test, include-all: true, interval: 300, filter: "(?i)HK|香港"}
+  - {name: 🇯🇵 日本节点, type: url-test, include-all: true, interval: 300, filter: "(?i)JP|日本"}
+  - {name: 🇸🇬 狮城节点, type: url-test, include-all: true, interval: 300, filter: "(?i)SG|新加坡"}
+  - {name: 🇺🇲 美国节点, type: url-test, include-all: true, interval: 300, filter: "(?i)美国|US|🇺🇸"}
+  - {name: 🇨🇳 台湾节点, type: url-test, include-all: true, interval: 300, filter: "(?i)TW|台湾"}
+  
+  # 地区故障转移组 (fallback) - 视频流使用
+  - {name: 🔯 香港故转, type: fallback, include-all: true, interval: 300, filter: "(?i)(?=.*(港|HK|Hong))^((?!(台|日|韩|新|深|美)).)*$"}
+  - {name: 🔯 日本故转, type: fallback, include-all: true, interval: 300, filter: "(?i)(?=.*(日|JP|Japan))^((?!(港|台|韩|新|美)).)*$"}
+  - {name: 🔯 台湾故转, type: fallback, include-all: true, interval: 300, filter: "(?i)(?=.*(台|TW|Taiwan))^((?!(港|日|韩|新|深|美|US)).)*$"}
+  - {name: 🔯 狮城故转, type: fallback, include-all: true, interval: 300, filter: "(?i)(?=.*(新加坡|坡|狮城|SG|Singapore))^((?!(台|日|韩|深|美)).)*$"}
+  - {name: 🔯 美国故转, type: fallback, include-all: true, interval: 300, filter: "(?i)(?=.*(美|US|States|America))^((?!(港|台|韩|新|日)).)*$"}
+
+  # 业务分流组
+  - {name: 📺 YouTube, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, 🔯 香港故转, 🔯 台湾故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 🤖 AI, type: select, proxies: [🔯 美国故转, 🔯 狮城故转, 🔯 日本故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 🍀 Google, type: select, proxies: [🔯 美国故转, 🔯 狮城故转, 🔯 日本故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 👨🏿‍💻 GitHub, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, 🔯 香港故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 🐬 OneDrive, type: select, proxies: [🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 🪟 Microsoft, type: select, proxies: [🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 🎵 TikTok, type: select, proxies: [🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 📲 Telegram, type: select, proxies: [🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]} 
+  - {name: 🎥 NETFLIX, type: select, proxies: [🔯 狮城故转, 🔯 香港故转, 🔯 日本故转, 🔯 台湾故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 💶 PayPal, type: select, proxies: [🔯 日本故转, 🔯 香港故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择,🌐 全部节点, DIRECT]}
+  - {name: 🐟 漏网之鱼, type: select, proxies: [🚀 默认代理, 🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 广告拦截, type: select, proxies: [REJECT, DIRECT]}
+
+rules:
+  # 1. 防止DNS请求走代理 
+  - DOMAIN,raw.githubusercontent.com,DIRECT
+  - DOMAIN,query.xiaohu.buzz,DIRECT
+  - IP-CIDR,146.190.131.173/32,DIRECT,no-resolve
+  - IP-CIDR,151.242.165.22/32,DIRECT,no-resolve
+  - IP-CIDR,192.155.81.16/32,DIRECT,no-resolve
+
+  # 2. 强制拦截广告 
+  - RULE-SET,reject_domain,广告拦截
+  
+  # 3. iptv规则
+  # 台湾节点
+  - DOMAIN-SUFFIX,4gtv.tv,🔯 台湾故转
+  - DOMAIN-SUFFIX,ofissaifreepc.akamaized.net,🔯 台湾故转
+  - DOMAIN-KEYWORD,hamivideo,🔯 台湾故转
+  - DOMAIN-SUFFIX,akamaized.net,🔯 台湾故转
+  - DOMAIN-SUFFIX,163189.xyz,🔯 台湾故转
+  - DOMAIN-SUFFIX,litv.tv,🔯 台湾故转
+  - DOMAIN-SUFFIX,ofiii.com,🔯 台湾故转
+  - DOMAIN-SUFFIX,livednow.com,🔯 台湾故转
+  - DOMAIN-SUFFIX,hinet.net,🔯 台湾故转
+  - DOMAIN-SUFFIX,infini.money,🔯 台湾故转
+
+  # 美国节点
+  - DOMAIN-SUFFIX,astro.com,🔯 美国故转
+  - DOMAIN-SUFFIX,pendy.dpdns.org,🔯 美国故转
+  - DOMAIN-SUFFIX,docker.livednow.dpdns.org,🔯 美国故转
+  - DOMAIN-SUFFIX,4gtv.livednow.dpdns.org,🔯 美国故转
+  - DOMAIN-SUFFIX,iptv.vip-tptv.xyzg,🔯 美国故转
+  - DOMAIN-SUFFIX,migu.8plus.eu.orgg,🔯 美国故转
+  - DOMAIN-SUFFIX,diver.eu.org,🔯 美国故转
+  - DOMAIN-SUFFIX,858.qzz.io,🔯 美国故转
+  - DOMAIN-SUFFIX,cluster-cz5nqyh5nreq6ua6gaqd7okl7o.cloudworkstations.dev,🔯 美国故转
+  - DOMAIN-SUFFIX,qzz.io,🔯 美国故转
+  - DOMAIN-SUFFIX,judy.xx.kg,🔯 美国故转
+  - DOMAIN-SUFFIX,8plus.eu.org,🔯 美国故转
+  - DOMAIN-SUFFIX,ru8.dpdns.org,🔯 美国故转
+  - DOMAIN-SUFFIX,vip-tptv.xyz,🔯 美国故转
+  - DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
+  - DOMAIN-SUFFIX,r2.hfyrw.com,🔯 美国故转
+  - DOMAIN-SUFFIX,go-iptv.ggff.net,🔯 美国故转
+  - DOMAIN-SUFFIX,bee.tzh911.qzz.io,🔯 美国故转
+  - DOMAIN-SUFFIX,wrod.diver.eu.org,🔯 美国故转
+  - DOMAIN-SUFFIX,catvod.com,🔯 美国故转
+  - DOMAIN-SUFFIX,z2u.com,🔯 美国故转
+  - DOMAIN-SUFFIX,amazonaws.com,🔯 美国故转
+  - DOMAIN-SUFFIX,cloudflare.com,🔯 美国故转
+  - DOMAIN-SUFFIX,nodeseek.com,🔯 美国故转
+  - DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
+
+  # 狮城节点
+  - DOMAIN-KEYWORD,astro,🔯 狮城故转
+  - DOMAIN-KEYWORD,wavve,🔯 狮城故转
+  - DOMAIN-SUFFIX,starhubgo.com,🔯 狮城故转
+  - DOMAIN-SUFFIX,stream-link.org,🔯 狮城故转
+  # bingcha
+  - DOMAIN-SUFFIX,188766.xyz,🔯 狮城故转
+  # gather
+  - DOMAIN-KEYWORD,iill,🔯 美国故转
+  - # 香港节点
+  - DOMAIN-KEYWORD,mytv265,🔯 香港故转
+  - DOMAIN-SUFFIX,tvb.com,🔯 香港故转
+  - DOMAIN-SUFFIX,hrtn.net,🔯 香港故转
+  - DOMAIN-SUFFIX,hoy.tv,🔯 香港故转
+  - DOMAIN-SUFFIX,rthk.tv,🔯 香港故转
+  - DOMAIN-SUFFIX,loc.ccv,🔯 香港故转
+  - DOMAIN-SUFFIX,163189.xyz,🔯 香港故转
+  - DOMAIN-SUFFIX,ofiii.passwdword.xyz,🔯 香港故转
+  - DOMAIN-SUFFIX,mytvsuper.com,🔯 香港故转
+
+   # IP规则 
+  - IP-CIDR,50.7.158.194/32,🔯 日本故转
+  - IP-CIDR,123.51.231.132/32,🔯 台湾故转
+  - IP-CIDR,60.250.121.103/32,🔯 台湾故转
+
+  # 漏网之鱼
+  - DOMAIN-SUFFIX,lioncdn.net,🐟 漏网之鱼
+  - DOMAIN-SUFFIX,passwdword.xyz,🐟 漏网之鱼
+ 
+  # 直连规则
+   ## TPTV
+  - DOMAIN-SUFFIX,mobaibox.com,DIRECT
+  - IP-CIDR,183.207.0.0/16,DIRECT,no-resolve
+
+  ## YSP
+  - DOMAIN-SUFFIX,cctv.cn,DIRECT
+  - DOMAIN-SUFFIX,yangshipin.cn,DIRECT
+
+  ## ITV
+  - DOMAIN-SUFFIX,dnsany.com,DIRECT
+  - DOMAIN-SUFFIX,cmvideo.cn,DIRECT
+  - DOMAIN-SUFFIX,chinamobile.com,DIRECT
+
+  ## 凤凰秀
+  - DOMAIN-KEYWORD,fengshows,DIRECT
+  
+  # 4. 强制 YouTube App 降级到 TCP (解决限速/跳画质)
+  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,googlevideo)),REJECT
+  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,youtube)),REJECT
+  
+  # 5. 视频与 AI (域名级匹配,速度最快)
+  
+  - RULE-SET,youtube_domain,📺 YouTube
+  - RULE-SET,ai_domain,🤖 AI
+  - RULE-SET,netflix_domain,🎥 NETFLIX
+  
+  # 6. 其他分流
+  - RULE-SET,private_ip,DIRECT,no-resolve
+  - RULE-SET,private_domain,DIRECT
+  - RULE-SET,proxylite,🚀 默认代理
+  - RULE-SET,github_domain,👨🏿‍💻 GitHub
+  - RULE-SET,google_domain,🍀 Google
+  - RULE-SET,onedrive_domain,🐬 OneDrive
+  - RULE-SET,microsoft_domain,🪟 Microsoft
+  - RULE-SET,apple_domain,DIRECT
+  - RULE-SET,tiktok_domain,🎵 TikTok
+  - RULE-SET,telegram_domain,📲 Telegram
+  - RULE-SET,paypal_domain,💶 PayPal
+  - RULE-SET,apple_ip,DIRECT
+  - RULE-SET,google_ip,🍀 Google
+  - RULE-SET,netflix_ip,🎥 NETFLIX
+  - RULE-SET,telegram_ip,📲 Telegram
+  - RULE-SET,geolocation-!cn,🚀 默认代理
+  - RULE-SET,cn_domain,DIRECT
+  - RULE-SET,cn_ip,DIRECT,no-resolve  # 💡 加上 no-resolve 避免为了判定 IP 而产生多余 DNS 解析延迟
+  # 7. 局域网
+  - GEOIP,LAN,DIRECT
+  
+  # 8. 全局兜底
+  - MATCH, 🐟 漏网之鱼
