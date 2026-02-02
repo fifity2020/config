@@ -1,8 +1,38 @@
 # Mihomo Party 专用覆写办公版
+
+# 全局配置 
+# 1. 基础设置
 allow-lan: false
-tcp-concurrent: true
 log-level: info
 ipv6: false
+unified-delay: true
+# 2. 连接优化
+tcp-concurrent: true
+global-client-fingerprint: chrome
+# 3. 连接保活
+keep-alive-idle: 3600    # 闲置连接保留时间 (秒)
+keep-alive-interval: 30  # 心跳包探测间隔 (秒)
+# 4. 外部资源优化 (GeoData 模式)
+# 开启这个可以大幅减少初次匹配时的内存占用
+geodata-mode: true
+geox-url:
+  geoip: "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat"
+  geosite: "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
+  mmdb: "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb"
+# 5. 存储设置
+profile:
+  store-selected: true    # 记住你选过的节点
+  store-fake-ip: true     # 记住 Fake-IP 映射
+
+# 入站 
+tun:
+  enable: true
+  # system/gvisor/mixed
+  stack: mixed
+  dns-hijack: ["any:53", "tcp://any:53"]
+  # 自动设置路由，将全局流量导入到 TUN 网卡
+  auto-route: true
+
 
 dns:
   enable: true
