@@ -113,7 +113,7 @@ proxy-groups:
 - {name: 🔯 日本故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(日|JP|Japan))^((?!(港|台|韩|新|美)).)*$"}
 - {name: 🔯 台湾故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(台|TW|Taiwan))^((?!(港|日|韩|新|深|美|US)).)*$"}
 - {name: 🔯 狮城故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(新加坡|坡|狮城|SG|Singapore))^((?!(台|日|韩|深|美)).)*$"}
-- {name: 🔯 美国故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(美|US|States|America))^((?!(港|台|韩|新|日)).)*$"}, interval: 300, filter: "(?i)(?=.*(美|US|States|America))^((?!(港|台|韩|新|日)).)*$"}
+- {name: 🔯 美国故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(美|US|States|America))^((?!(港|台|韩|新|日)).)*$"}
 
   # 业务分流组
   - {name: 📺 YouTube, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, 🔯 香港故转, 🔯 台湾故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
