@@ -100,8 +100,7 @@ rule-providers:
 proxy-groups:
   - {name: 🚀 默认代理, type: select, proxies: [🔯 香港故转, 🔯 日本故转, 🔯 台湾故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🇺🇲 美国节点, 🌐 全部节点, DIRECT]}
   - {name: ♻️ 自动选择, type: url-test, include-all: true, tolerance: 20, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "^((?!(直连)).)*$"}
-  - {name: 🌐 全部节点, type: select, include-all: true}
-  
+    
 # 地区自动选路组
 - {name: 🇭🇰 香港节点, type: url-test, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)HK|香港"}
 - {name: 🇯🇵 日本节点, type: url-test, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)JP|日本"}
@@ -109,24 +108,24 @@ proxy-groups:
 - {name: 🇺🇲 美国节点, type: url-test, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)美国|US|🇺🇸"}
 - {name: 🇨🇳 台湾节点, type: url-test, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)TW|台湾"}
 # 地区故障转移组
-- {name: 🔯 香港故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(港|HK|Hong))^((?!(台|日|韩|新|深|美)).)*$"}
-- {name: 🔯 日本故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(日|JP|Japan))^((?!(港|台|韩|新|美)).)*$"}
-- {name: 🔯 台湾故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(台|TW|Taiwan))^((?!(港|日|韩|新|深|美|US)).)*$"}
-- {name: 🔯 狮城故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(新加坡|坡|狮城|SG|Singapore))^((?!(台|日|韩|深|美)).)*$"}
-- {name: 🔯 美国故转, type: fallback, include-all: true, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "(?i)(?=.*(美|US|States|America))^((?!(港|台|韩|新|日)).)*$"}
+- {name: 🔯 香港故转, type: fallback, proxies: [🇭🇰 香港节点]}
+- {name: 🔯 日本故转, type: fallback, proxies: [🇯🇵 日本节点]}
+- {name: 🔯 台湾故转, type: fallback, proxies: [🇨🇳 台湾节点]}
+- {name: 🔯 狮城故转, type: fallback, proxies: [🇸🇬 狮城节点]}
+- {name: 🔯 美国故转, type: fallback, proxies: [🇺🇲 美国节点]}
 
   # 业务分流组
-  - {name: 📺 YouTube, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, 🔯 香港故转, 🔯 台湾故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
-  - {name: 🤖 AI, type: select, proxies: [🔯 美国故转, 🔯 狮城故转, 🔯 日本故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
-  - {name: 🍀 Google, type: select, proxies: [🔯 美国故转, 🔯 狮城故转, 🔯 日本故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
-  - {name: 👨🏿‍💻 GitHub, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, 🔯 香港故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
-  - {name: 🐬 OneDrive, type: select, proxies: [🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
-  - {name: 🪟 Microsoft, type: select, proxies: [🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 📺 YouTube, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, 🔯 香港故转, 🔯 台湾故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
+  - {name: 🤖 AI, type: select, proxies: [🔯 美国故转, 🔯 狮城故转, 🔯 日本故转, ♻️ 自动选择, DIRECT]}
+  - {name: 🍀 Google, type: select, proxies: [🔯 美国故转, 🔯 狮城故转, 🔯 日本故转, ♻️ 自动选择, DIRECT]}
+  - {name: 👨🏿‍💻 GitHub, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, 🔯 香港故转, ♻️ 自动选择, DIRECT]}
+  - {name: 🐬 OneDrive, type: select, proxies: [🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
+  - {name: 🪟 Microsoft, type: select, proxies: [🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
   - {name: 🎵 TikTok, type: select, proxies: [🔯 狮城故转, DIRECT]}
-  - {name: 📲 Telegram, type: select, proxies: [🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]} 
-  - {name: 🎥 NETFLIX, type: select, proxies: [🔯 狮城故转, 🔯 香港故转, 🔯 日本故转, 🔯 台湾故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
-  - {name: 💶 PayPal, type: select, proxies: [🔯 日本故转, 🔯 香港故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择,🌐 全部节点, DIRECT]}
-  - {name: 🐟 漏网之鱼, type: select, proxies: [🚀 默认代理, 🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🌐 全部节点, DIRECT]}
+  - {name: 📲 Telegram, type: select, proxies: [🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]} 
+  - {name: 🎥 NETFLIX, type: select, proxies: [🔯 狮城故转, 🔯 香港故转, 🔯 日本故转, 🔯 台湾故转, ♻️ 自动选择, DIRECT]}
+  - {name: 💶 PayPal, type: select, proxies: [🔯 日本故转, 🔯 香港故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
+  - {name: 🐟 漏网之鱼, type: select, proxies: [🚀 默认代理, 🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
   - {name: 广告拦截, type: select, proxies: [REJECT, DIRECT]}
 
 rules:
