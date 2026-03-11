@@ -12,8 +12,13 @@ tcp-concurrent: true
  # sniff:
  #  TLS: {ports: [443, 8443]}
  #  HTTP: {ports: [80, 8080-8880]}
-
-# 3. DNS 加速 (采用了机场服务商DNS)
+# 3. 入站 
+tun:
+  enable: true
+  stack: mixed
+  auto-route: false # 保持现状，由 Nikki 维护
+  strict-route: true
+# 4. DNS 加速 (采用了机场服务商DNS)
 dns:
   enable: true
   ipv6: true
@@ -33,27 +38,43 @@ dns:
    - 223.5.5.5
    - 211.138.13.66
      
-  # 💡 使用运营商 DNS 
-  nameserver: 
-   - udp://query.xiaohu.buzz:55553
-   - udp://146.190.131.173:55553
-   - udp://query.huyun-query.com:55553
-   - tcp://query.huyun-query.com:55553
-   - udp://151.242.165.22:1053
-   - tcp://151.242.165.22:55553
-   - tcp://146.190.131.173:55553
-   - tcp://192.155.81.6:1053
+  # 💡 国内直连解析：使用加密 DoH，防止运营商劫持 
+  nameserver:
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
    
-  # 💡 国外走机场加速 DNS 和 Google，防止 DNS 泄露
-  fallback: [ 'https://dns.google/dns-query','https://1.1.1.1/dns-query']
-  fallback-filter: {geoip: true, geoip-code: CN}
-  # 💡 解决插件检测异常：让流媒体域名不进入 Fake-IP 模式
-  fake-ip-filter: ['+.netflix.com', '+.netflix.net', '+.nflxvideo.net', '+.disneyplus.com', '+.googlevideo.com', '+.youtube.com', 'msftconnecttest.com', 'msftncsi.com', 'cpas.google', 'connectivitycheck.gstatic.com']
+  # 💡 国外/兜底解析：只在规则匹配到代理或解析无结果时触发
+  fallback:
+    - https://8.8.8.8/dns-query#RULES&ecs=223.5.5.0/24
+    - https://1.1.1.1/dns-query#RULES
+    - https://dns.google/dns-query#RULES
+  # 智能判别：如果 nameserver 返回的是国外 IP，则强制改用 fallback 的结果
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+   # 💡 解决插件检测异常：让流媒体域名不进入 Fake-IP 模式
+  fake-ip-filter:
+    # 基础服务
+    - 'ntp*.aliyun.com'
+    - 'unify.ui.com'
+    - '+.msftconnecttest.com'
+    - '+.msftncsi.com'
+    # 流媒体（解决你的第二种配置中的需求）
+    - '+.netflix.com'
+    - '+.netflix.net'
+    - '+.nflxvideo.net'
+    - '+.disneyplus.com'
+    - '+.googlevideo.com'
+    - '+.youtube.com'
+    # 常用组件
+    - 'rule-set:fakeipfilter_domain' # 如果你用了外部规则集
   # 💡 咪咕方案
   hosts:
     'studentlive.migucloud.com' : '39.134.142.147'    
 
-# 4. 机场订阅
+# 5. 机场订阅
 proxy-providers:
   Airport1:
     url: "我的订阅" 
@@ -62,7 +83,7 @@ proxy-providers:
     path: ./proxies/airport1.yaml
     health-check: {enable: true, url: "http://www.gstatic.com/generate_204", interval: 600}
 
-# 4. 远程规则集 (只挑选最稳的 4 个)
+# 6. 远程规则集 (只挑选最稳的 4 个)
 # 💡 定义锚点模板
 rule-anchor:
   ip: &ip {type: http, interval: 86400, behavior: ipcidr, format: mrs}
@@ -70,6 +91,7 @@ rule-anchor:
   class: &class {type: http, interval: 86400, behavior: classical, format: text}
 # 💡 规则组
 rule-providers:
+  fakeipfilter_domain: {<<: *domain, url: "https://raw.githubusercontent.com/wwqgtxx/clash-rules/release/fakeip-filter.mrs"}
   private_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/private.mrs"}
   proxylite: { <<: *class, url: "https://raw.githubusercontent.com/qichiyuhub/rule/refs/heads/main/proxy.list"}
   reject_domain: { <<: *domain, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs"}
@@ -96,7 +118,7 @@ rule-providers:
   apple_ip: {<<: *ip, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo-lite/geoip/apple.mrs"}
 
 
-# 6. 代理分组
+# 7. 代理分组
 proxy-groups:
   - {name: 🚀 默认代理, type: select, proxies: [🔯 香港故转, 🔯 日本故转, 🔯 台湾故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, 🇭🇰 香港节点, 🇨🇳 台湾节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🇺🇲 美国节点, 🌐 全部节点, DIRECT]}
   - {name: ♻️ 自动选择, type: url-test, include-all: true, tolerance: 20, interval: 300, url: "http://www.gstatic.com/generate_204", filter: "^((?!(直连)).)*$"}
@@ -127,19 +149,33 @@ proxy-groups:
   - {name: 💶 PayPal, type: select, proxies: [🔯 日本故转, 🔯 香港故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
   - {name: 🐟 漏网之鱼, type: select, proxies: [🚀 默认代理, 🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
   - {name: 广告拦截, type: select, proxies: [REJECT, DIRECT]}
-
+# 8. 规则
 rules:
-  # 1. 防止DNS请求走代理 
+  # 1). 防止DNS请求走代理 
   - DOMAIN,raw.githubusercontent.com,DIRECT
   - DOMAIN,query.xiaohu.buzz,DIRECT
   - IP-CIDR,146.190.131.173/32,DIRECT,no-resolve
   - IP-CIDR,151.242.165.22/32,DIRECT,no-resolve
   - IP-CIDR,192.155.81.16/32,DIRECT,no-resolve
 
-  # 2. 强制拦截广告 
+  # 2). 强制拦截广告 
   - RULE-SET,reject_domain,广告拦截
   
-  # 3. iptv规则
+ # 3). 强制 YouTube App 降级到 TCP (解决限速/跳画质)
+  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,googlevideo)),REJECT
+  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,youtube)),REJECT
+  
+ # 4). 视频与 AI 
+  - DOMAIN-KEYWORD,gemini,🤖 AI
+  - DOMAIN-KEYWORD,generativelanguage,🤖 AI
+  - DOMAIN-KEYWORD,openai,🤖 AI
+  - DOMAIN-KEYWORD,anthropic,🤖 AI
+  - DOMAIN-KEYWORD,claud,🤖 AI
+  - RULE-SET,ai_domain,🤖 AI
+  - RULE-SET,youtube_domain,📺 YouTube
+  - RULE-SET,netflix_domain,🎥 NETFLIX
+
+  # 5). iptv规则
   # 台湾节点
   - DOMAIN-SUFFIX,4gtv.tv,🔯 台湾故转
   - DOMAIN-SUFFIX,ofissaifreepc.akamaized.net,🔯 台湾故转
@@ -224,18 +260,8 @@ rules:
 
   ## 凤凰秀
   - DOMAIN-KEYWORD,fengshows,DIRECT
-  
-  # 4. 强制 YouTube App 降级到 TCP (解决限速/跳画质)
-  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,googlevideo)),REJECT
-  - AND,((NETWORK,UDP),(DST-PORT,443),(DOMAIN-KEYWORD,youtube)),REJECT
-  
-  # 5. 视频与 AI (域名级匹配,速度最快)
-  
-  - RULE-SET,youtube_domain,📺 YouTube
-  - RULE-SET,ai_domain,🤖 AI
-  - RULE-SET,netflix_domain,🎥 NETFLIX
-  
-  # 6. 其他分流
+    
+  # 6). 其他分流
   - RULE-SET,private_ip,DIRECT,no-resolve
   - RULE-SET,private_domain,DIRECT
   - RULE-SET,proxylite,🚀 默认代理
@@ -254,8 +280,8 @@ rules:
   - RULE-SET,geolocation-!cn,🚀 默认代理
   - RULE-SET,cn_domain,DIRECT
   - RULE-SET,cn_ip,DIRECT,no-resolve  # 💡 加上 no-resolve 避免为了判定 IP 而产生多余 DNS 解析延迟
-  # 7. 局域网
+  # 7). 局域网
   - GEOIP,LAN,DIRECT
   
-  # 8. 全局兜底
+  # 8). 全局兜底
   - MATCH, 🐟 漏网之鱼
