@@ -56,6 +56,7 @@ dns:
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
   nameserver-policy:
+    'geosite:geolocation-!cn': [https://dns.google/dns-query, https://1.1.1.1/dns-query]
     'geosite:private,cn': [223.5.5.5, 119.29.29.29]
     'oa.corp.com': system
     '+.corp.com': system
