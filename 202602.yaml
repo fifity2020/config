@@ -232,6 +232,7 @@ rules:
   - DOMAIN-SUFFIX,cloudflare.com,🔯 美国故转
   - DOMAIN-SUFFIX,nodeseek.com,🔯 美国故转
   - DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
+  - DOMAIN-SUFFIX,passwdword.xyz,🔯 美国故转
 
   # 狮城节点
   - DOMAIN-KEYWORD,astro,🔯 狮城故转
@@ -260,7 +261,7 @@ rules:
 
   # 漏网之鱼
   - DOMAIN-SUFFIX,lioncdn.net,🐟 漏网之鱼
-  - DOMAIN-SUFFIX,passwdword.xyz,🐟 漏网之鱼
+ 
  
   # 直连规则
    ## TPTV
