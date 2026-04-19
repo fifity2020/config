@@ -1,0 +1,113 @@
+# ------------------------------
+# Fake-IP Filter 规则集 (MRS 格式)
+# 适用：Mihomo / Clash Meta
+# 作用：强制这些域名使用真实IP，解决登录、联机、验证失败问题
+# ------------------------------
+
+# 系统/本地/保留域名
++.lan
++.local
++.localhost
++.localdomain
++.example
++.invalid
++.test
++.home.arpa
+localhost
++.localhost
+
+# 微软/Windows
++.msftconnecttest.com
++.msncsi.com
++.windowsupdate.com
++.microsoft.com
++.live.com
++.outlook.com
++.office.com
++.azure.com
++.bing.com
++.visualstudio.com
++.onedrive.com
++.sharepoint.com
+
+# Apple
++.apple.com
++.icloud.com
++.mzstatic.com
++.apps.apple.com
++.itunes.apple.com
++.music.apple.com
++.testflight.apple.com
++.apple-cloudkit.com
++.apple-dns.net
+
+# 国内常用/必须直连
++.cn
++.com.cn
++.gov.cn
++.edu.cn
++.baidu.com
++.bilibili.com
++.qq.com
++.taobao.com
++.jd.com
++.weixin.qq.com
++.weibo.com
++.zhihu.com
++.douyin.com
++.kuaishou.com
++.163.com
++.sohu.com
++.sina.com.cn
++.sogou.com
++.youku.com
++.iqiyi.com
+
+# 支付/金融/验证
++.alipay.com
++.tenpay.com
++.unionpay.com
++.bankcomm.com
++.icbc.com.cn
++.ccb.com
++.abc.com
++.boc.cn
+
+# 游戏/联机/STUN
++.stun.*
++.turn.*
++.srv.nintendo.net
++.nintendo.net
++.steamcommunity.com
++.steampowered.com
++.battlenet.com.cn
++.battlenet.net
++.ea.com
++.ea.com.cn
++.riotgames.com
++.valorant-api.com
++.psn.net
++.playstation.net
++.xboxlive.com
++.xbox.com
+
+# 运营商/路由/监控
++.cmcc.com
++.chinamobile.com
++.chinaunicom.com
++.chinatelecom.com
++.router.*
++.modem.*
++.home
++.iot
++.camera
++.nas
+
+# 其他常见兼容问题域名
++.srv.*
++.ntp.*
++.time.*
++.ipv6.*
++.test.*
++.dev.*
++.local.*
