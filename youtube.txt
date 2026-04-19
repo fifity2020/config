@@ -1,0 +1,21 @@
+# YouTube 主域名
++.youtube.com
++.youtu.be
++.ytimg.com
++.ytstatic.com
++.youtube-nocookie.com
+
+# 视频 CDN 与播放域名
++.googlevideo.com
++.ggpht.com
++.googleusercontent.com
++.youtube.googleapis.com
++.widevine.com
+
+# YouTube Music 相关
++.music.youtube.com
++.ytmusic.com
+
+# 补充：Google 公共域名（解决部分加载问题）
++.gstatic.com
++.apis.google.com
