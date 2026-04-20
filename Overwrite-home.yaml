@@ -1,56 +1,105 @@
-#  1. 基础设置
+#  基础设置
 mixed-port: 7890
 allow-lan: true
-mode: rule
-log-level: info
-ipv6: false 
-
-#  2. 增强型 Fake-IP
+bind-address: "*"
+ipv6: false
+unified-delay: true
+tcp-concurrent: true
+log-level: warning
+global-client-fingerprint: chrome
+keep-alive-idle: 600
+keep-alive-interval: 15
+profile:
+  store-selected: true
+  store-fake-ip: true
+  
+# 嗅探（fakeip下其实可以不用嗅探）
+sniffer:
+  enable: true
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+    QUIC:
+      ports: [443, 8443]
+  skip-domain:
+    - "Mijia Cloud"
+    - "+.push.apple.com"
+# 入站  
+tun:
+  enable: true
+  # system/gvisor/mixed
+  stack: mixed
+  dns-hijack: ["any:53", "tcp://any:53"]
+  #使用nikki，混入全部不修改的情况，开启接口指定为nikki
+  #device: nikki
+  #使用仅内核自行修改下面三项为true
+  auto-route: false
+  auto-redirect: false
+  auto-detect-interface: false
+#  dns设置 
 dns:
   enable: true
-  prefer-h3: true
-  ipv6: false
+  cache-algorithm: arc
   listen: 0.0.0.0:1053
-  use-hosts: true
+  ipv6: false
+  respect-rules: true
   enhanced-mode: fake-ip
-  fake-ip-range: 198.18.0.1/16
+  fake-ip-range: 28.0.0.1/8
+  fake-ip-filter-mode: blacklist
   fake-ip-filter:
-    - '*.lan'
-    - 'localhost.ptlogin2.qq.com'
-    - '+.msftconnecttest.com'
-    - '+.msftncsi.com'
-  
-  #  3. DNS 策略组：分流防止泄漏
+    - "rule-set:fakeipfilter_domain"
   default-nameserver:
-    - 223.5.5.5
-    - 119.29.29.29
-  nameserver:
-    - https://dns.alicdn.com/dns-query
+    - https://223.5.5.5/dns-query
+  proxy-server-nameserver:
+    - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
-  fallback:
-    - https://dns.google/dns-query
-    - https://1.1.1.1/dns-query
-  fallback-filter:
-    geoip: true
-    geoip-code: CN
-    ipcount-threshold: 2
+  nameserver:
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+# 规则集 
+proxy-groups:
+  - name: ☁️ CF节点, type: url-test, url: 'https://www.gstatic.com/generate_204',  url: 'https://www.gstatic.com/generate_204', use: Airport1 , filter: "proxy" 
+  - {name: 🚀 默认代理, type: select, proxies: [🔯 狮城故转,🔯 香港故转,  🔯 日本故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
+  - {name: 📹 YouTube, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, ♻️ 狮城自动, ♻️ 日本自动, ♻️ 自动选择, DIRECT]}
+  - {name: 📹 湾湾电视, type: select, proxies: [🔯 Hinet故转, 🔯 台湾故转, ♻️ 台湾自动, 🇹🇼 台湾 Hinet, DIRECT]}
+  - {name: 🍀 Google, type: select, proxies: [🔯 香港故转, 🔯 狮城故转, 🔯 日本故转, 🔯 美国故转, ♻️ 自动选择, DIRECT]}
+  - {name: 🤖 ChatGPT, type: select, proxies: [🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 日本自动, ♻️ 狮城自动, ♻️ 美国自动, DIRECT]}
+  - {name: 👨🏿‍💻 GitHub, type: select, proxies: [🔯 狮城故转, 🔯 香港故转, 🔯 日本故转, ♻️ 香港自动, ♻️ 自动选择, DIRECT]}
+  - {name: 🐬 OneDrive, type: select, proxies: [DIRECT, 🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, ♻️ 自动选择]}
+  - {name: 🪟 Microsoft, type: select, proxies: [DIRECT, 🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, ♻️ 自动选择]}
+  - {name: 🎵 TikTok, type: select, proxies: [🔯 狮城故转, 🔯 日本故转, 🔯 美国故转, ♻️ 狮城自动, ♻️ 自动选择]}
+  - {name: 🤖 AI, type: select, proxies: [🔯 美国故转, 🔯 狮城故转, 🔯 日本故转, ♻️ 美国自动, ♻️ 自动选择]}
+  - {name: 📲 Telegram, type: select, proxies: [🔯 香港故转, 🔯 狮城故转, 🔯 日本故转, ♻️ 香港自动, ♻️ 自动选择]}
+  - {name: 🎥 NETFLIX, type: select, proxies: [🔯 狮城故转, 🔯 香港故转, 🔯 日本故转, ♻️ 狮城自动, ♻️ 自动选择]}
+  - {name: 💶 PayPal, type: select, proxies: [DIRECT, 🔯 香港故转, 🔯 日本故转, 🔯 狮城故转]}
+  - {name: 🐟 漏网之鱼, type: select, proxies:  [🚀 默认代理, 🔯 香港故转, 🔯 日本故转, 🔯 狮城故转, 🔯 美国故转, ♻️ 香港自动, ♻️ 日本自动, ♻️ 狮城自动, ♻️ 美国自动, ♻️ 自动选择, 🇭🇰 香港节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🇺🇲 美国节点, 🌐 全部节点, DIRECT]}
 
-# 4. 规则集 (保持 MRS 高效格式)
-rule-providers:
-  reject_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ads-all.mrs"}
-  ai_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.mrs" }
-  youtube_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"}
-  google_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.mrs"}
-  github_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/github.mrs"}
-  telegram_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"}
-  netflix_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/netflix.mrs"}
-  microsoft_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/microsoft.mrs"}
-  apple_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/apple.mrs"}
-  cn_domain: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs"}
-  cn_ip: { type: http, interval: 86400, behavior: ipcidr, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/cn.mrs"}
-  geolocation-!cn: { type: http, interval: 86400, behavior: domain, format: mrs, url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/geolocation-!cn.mrs"}
+  - {name: 🔯 香港故转, type: fallback, include-all: true, lazy: false, interval: 150, url: "https://www.gstatic.com/generate_204", filter: "(?i)HK|Hong"}
+  - {name: 🔯 台湾故转, type: fallback, include-all: true, lazy: false, interval: 150, url: "https://www.gstatic.com/generate_204", filter: "(?i)TW|Taiwan"}
+  - {name: 🔯 Hinet故转, type: fallback, include-all: true, lazy: false, interval: 150, url: "https://www.gstatic.com/generate_204", filter: "(?i)Hinet"}
+  - {name: 🔯 日本故转, type: fallback, include-all: true, lazy: false, interval: 150, url: "https://www.gstatic.com/generate_204", filter: "(?i)JP|Japan"}
+  - {name: 🔯 狮城故转, type: fallback, include-all: true, lazy: false, interval: 150, url: "https://www.gstatic.com/generate_204", filter: "(?i)SG|Singapore"}
+  - {name: 🔯 美国故转, type: fallback, include-all: true, lazy: false, interval: 150, url: "https://www.gstatic.com/generate_204", filter: "(?i)US|States|America"}
 
-# 5. 策略组 (家庭版增加流媒体与游戏支持)
+   - {name: ♻️ 香港自动, type: url-test, include-all: true, lazy: false, interval: 150, tolerance: 30, url: "https://www.gstatic.com/generate_204", filter: "(?i)HK|Hong"}
+  - {name: ♻️ 台湾自动, type: url-test, include-all: true, lazy: false, interval: 150, tolerance: 30, url: "https://www.gstatic.com/generate_204", filter: "(?i)TW|Taiwan"}
+  - {name: ♻️ 日本自动, type: url-test, include-all: true, lazy: false, interval: 150, tolerance: 30, url: "https://www.gstatic.com/generate_204", filter: "(?i)JP|Japan"}
+  - {name: ♻️ 狮城自动, type: url-test, include-all: true, lazy: false, interval: 150, tolerance: 30, url: "https://www.gstatic.com/generate_204", filter: "(?i)SG|Singapore"}
+  - {name: ♻️ 美国自动, type: url-test, include-all: true, lazy: false, interval: 150, tolerance: 30, url: "https://www.gstatic.com/generate_204", filter: "(?i)US|States|America"}
+  - {name: ♻️ 自动选择, type: url-test, include-all: true, lazy: false, interval: 150, tolerance: 50, url: "https://www.gstatic.com/generate_204", filter: "^((?!(DIRECT)).)*$"}
+
+  - {name: 🇹🇼 台湾 Hinet, type: url-test, include-all: true, lazy: false, interval: 150, url: "https://www.gstatic.com/generate_204", filter: "(?i)Hinet"}
+  - {name: 🇭🇰 香港节点, type: select, include-all: true, filter: "(?i)HK|Hong"}
+  - {name: 🇯🇵 日本节点, type: select, include-all: true, filter: "(?i)JP|Japan"}
+  - {name: 🇸🇬 狮城节点, type: select, include-all: true, filter: "(?i)SG|Singapore"}
+  - {name: 🇺🇲 美国节点, type: select, include-all: true, filter: "(?i)US|States|America"}
+  - {name: 🇨🇳 台湾节点, type: select, include-all: true, filter: "(?i)TW|Taiwan"}
+  - {name: 🌐 全部节点, type: select, include-all: true}
+  
+# 策略组 (家庭版增加流媒体与游戏支持)
 proxy-groups:
   - { name: 🚀 主代理组, type: select, proxies: [⚡ 全局自动优选, 🇭🇰 香港节点, 🇸🇬 狮城节点, 🇯🇵 日本节点, 🇺🇲 美国节点, DIRECT] }
   - { name: ⚡ 全局自动优选, type: url-test, include-all: true, filter: "^(?!.*(剩余|到期|官网|过期|Traffic|Website|Reset)).*", url: "http://www.gstatic.com/generate_204", interval: 300, tolerance: 50}
