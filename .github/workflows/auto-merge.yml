@@ -1,33 +1,39 @@
-name: Auto Merge Shadowrocket Config
+name: Build and Deploy Shadowrocket Config
 
 on:
+  push:
+    branches:
+      - main
   schedule:
-    # 每天 UTC 时间 20:00 (北京时间凌晨 04:00) 自动运行一次
-    - cron: '0 20 * * *'
-  # 支持在 GitHub 页面手动点击触发
-  workflow_dispatch:
+    # 每天 UTC 0点 (北京时间 8:00) 自动同步上游更新并重新构建
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许在 GitHub 界面手动触发
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Run Build Script
-        run: python build_config.py
+        run: |
+          python build_config.py
 
-      - name: Commit and Push
+      - name: Commit and Push Changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add shadow.conf
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: 自动同步合并最新上游规则" && git push)
+          if git diff --staged --quiet; then
+            echo "配置文件没有变动，无需提交。"
+          else
+            git commit -m "auto: update shadow.conf [skip ci]"
+            git push
+          fi
