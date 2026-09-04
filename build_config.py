@@ -3,24 +3,32 @@ import urllib.request
 
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 更加精简且符合 Shadowrocket 正则引擎规范的排除表达式
-# 排除包含 1.x / 2x / 3x / 2倍 / 3倍 / 高倍 等字样的节点
-NO_HIGH_RATE = r"^(?!.*(\[[0-9]+\.[0-9]+(x|X|倍)\]|\[[2-9](x|X|倍)\]|[2-9](x|X|倍)|[2-9]倍|1\.[0-9]倍|高倍)).*"
+# 精确排除高倍率节点的正则（针对 0.x / 1.x / 2x / 2倍 等）
+NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-9](x|X|倍)\]?|[2-9]倍|1\.[0-9]倍))).*"
 
-# 定义兼容性更高的策略组
+# 自动优选正则：过滤低延迟常用地区，且排除高倍率节点
+AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|KR|Korea|韩国)"
+
+# 自定义策略组配置
 MY_PROXY_GROUPS = f"""
+# -------------------------- 自动优选组 --------------------------
+自动优选 = url-test, url = "http://www.gstatic.com/generate_204", interval = 300, tolerance = 50, policy-regex-filter = "{AUTO_TEST_FILTER}"
+
+# -------------------------- 主入口组 (默认首选自动优选) --------------------------
+🚀 节点选择 = select, 自动优选, HK 香港节点, TW 台湾节点, JP 日本节点, US 美国节点, PROXY, DIRECT
+
 # -------------------------- 故障转移组 --------------------------
-香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(Hong|HK|香港)"
-台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(TW|Taiwan|台湾|臺灣)"
-日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(Japan|JP|日本)"
-狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(Singapore|SG|新加坡|狮城)"
-美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(USA|US|United States|美国)"
+香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
+台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
+日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
+狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)"
+美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
 
 # -------------------------- 基础地区组 --------------------------
-HK 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(Hong|HK|香港)"
-TW 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(TW|Taiwan|台湾|臺灣)"
-JP 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(Japan|JP|日本)"
-US 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(USA|US|United States|美国)"
+HK 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
+TW 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
+JP 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
+US 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
 """
 
 MY_CUSTOM_RULES = """
@@ -79,8 +87,8 @@ IP-CIDR,50.7.158.194/32,日本故转
 IP-CIDR,123.51.231.132/32,台湾故转
 IP-CIDR,60.250.121.103/32,台湾故转
 
-DOMAIN-SUFFIX,lioncdn.net,HK 香港节点
-DOMAIN-SUFFIX,passwdword.xyz,HK 香港节点
+DOMAIN-SUFFIX,lioncdn.net,自动优选
+DOMAIN-SUFFIX,passwdword.xyz,自动优选
 
 # 直连规则
 DOMAIN-SUFFIX,mobaibox.com,DIRECT
@@ -109,20 +117,23 @@ def merge_config():
         print(f"拉取上游配置失败: {e}")
         return
 
-    # 1. 清除旧策略组定义
+    # 1. 彻底清除上游旧的 url-test 策略组、节点选择组、自动优选组
     content = re.sub(r"^.*url-test,url=http.*$\n?", "", content, flags=re.MULTILINE)
+    content = re.sub(r"^.*节点选择.*$\n?", "", content, flags=re.MULTILINE)
+    content = re.sub(r"^.*自动优选.*$\n?", "", content, flags=re.MULTILINE)
 
-    # 2. 插入新策略组
+    # 2. 在 [Proxy Group] 下追加全新的策略组（自动优选置顶）
     if "[Proxy Group]" in content:
         content = content.replace("[Proxy Group]\n", f"[Proxy Group]\n{MY_PROXY_GROUPS.strip()}\n\n")
 
-    # 3. 插入自定义规则
+    # 3. 在 [Rule] 顶部插入自定义规则
     if "[Rule]" in content:
         content = content.replace("[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n\n")
 
+    # 4. 写出配置文件
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
-    print("生成完成！现已修复正则表达式语法及小火箭策略组解析问题。")
+    print("配置文件生成成功！全局节点选择已重置为默认‘自动优选’。")
 
 if __name__ == "__main__":
     merge_config()
