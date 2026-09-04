@@ -10,7 +10,7 @@ NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-
 # 自动优选正则
 AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|KR|Korea|韩国)"
 
-# 自定义核心策略组
+# 我方核心策略组
 MY_CORE_GROUPS = f"""
 # -------------------------- 自动优选与主选择组 --------------------------
 自动优选 = url-test, url = "http://www.gstatic.com/generate_204", interval = 300, tolerance = 50, policy-regex-filter = "{AUTO_TEST_FILTER}"
@@ -106,7 +106,7 @@ DOMAIN-KEYWORD,generativelanguage,AI
 
 def fetch_upstream_config(url, retries=3):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
     for attempt in range(1, retries + 1):
         try:
@@ -124,39 +124,44 @@ def fetch_upstream_config(url, retries=3):
 def merge_config():
     content = fetch_upstream_config(UPSTREAM_URL)
 
-    lines = content.splitlines()
-    output_lines = []
-    
-    in_proxy_group = False
-    skip_keywords = ["节点选择", "自动优选", "香港节点", "台湾节点", "日本节点", "美国节点", "其他节点"]
+    # 1. 精确捕捉 [Proxy Group] 区块（包含 [Proxy Group] 这一行，到下一个 [ 块为止）
+    pg_pattern = re.compile(r"(\[Proxy Group\][\s\S]*?)(?=\n\[|\Z)", re.IGNORECASE)
+    pg_match = pg_pattern.search(content)
 
-    for line in lines:
-        stripped = line.strip()
+    if pg_match:
+        upstream_pg_full = pg_match.group(1)
         
-        if stripped.startswith("[") and stripped.endswith("]"):
-            if stripped.lower() == "[proxy group]":
-                in_proxy_group = True
-                output_lines.append(line)
-                output_lines.append(MY_CORE_GROUPS.strip())
+        # 过滤上游已有的冲突策略组，保留第三方业务组
+        skip_keywords = ["节点选择", "自动优选", "香港节点", "台湾节点", "日本节点", "美国节点", "其他节点"]
+        cleaned_upstream_lines = []
+        
+        for line in upstream_pg_full.splitlines():
+            # 跳过区块头行（我们后面统一重新加）
+            if line.strip().lower() == "[proxy group]":
                 continue
-            else:
-                in_proxy_group = False
-
-        if in_proxy_group:
+            # 如果行中包含冲突的顶级选择组或基础节点组名称，跳过
             if any(kw in line for kw in skip_keywords):
                 continue
-            output_lines.append(line)
-        else:
-            if stripped.lower() == "[rule]":
-                output_lines.append(line)
-                output_lines.append(MY_CUSTOM_RULES.strip())
-            else:
-                output_lines.append(line)
+            cleaned_upstream_lines.append(line)
 
-    final_content = "\n".join(output_lines)
+        # 组合新 [Proxy Group] 区块：头部 + 我方核心组 + 上游清洗后的第三方组
+        new_pg_block = "[Proxy Group]\n" + MY_CORE_GROUPS.strip() + "\n" + "\n".join(cleaned_upstream_lines)
+        
+        # 替换回原文
+        content = content[:pg_match.start()] + new_pg_block + content[pg_match.end():]
+    else:
+        print("未找到 [Proxy Group] 标记，直接追加核心组")
+
+    # 2. 插入自定义规则 [Rule]
+    rule_pattern = re.compile(r"(\[Rule\])", re.IGNORECASE)
+    if rule_pattern.search(content):
+        content = rule_pattern.sub(r"\1\n" + MY_CUSTOM_RULES.strip(), content, count=1)
+
+    # 3. 写入文件
     with open("shadow.conf", "w", encoding="utf-8") as f:
-        f.write(final_content)
-    print("shadow.conf 写入完毕！已成功生成配置文件。")
+        f.write(content)
+    
+    print("shadow.conf 更新成功！成功将自定义规则与上游所有第三方组融合。")
 
 if __name__ == "__main__":
     merge_config()
