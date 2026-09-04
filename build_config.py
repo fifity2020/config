@@ -3,23 +3,24 @@ import urllib.request
 
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 精确排除高倍率节点的正则（针对 0.x/1.x/2x/倍 等）
-NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-9](x|X|倍)\]?|[2-9]倍|1\.[0-9]倍))).*"
+# 更加精简且符合 Shadowrocket 正则引擎规范的排除表达式
+# 排除包含 1.x / 2x / 3x / 2倍 / 3倍 / 高倍 等字样的节点
+NO_HIGH_RATE = r"^(?!.*(\[[0-9]+\.[0-9]+(x|X|倍)\]|\[[2-9](x|X|倍)\]|[2-9](x|X|倍)|[2-9]倍|1\.[0-9]倍|高倍)).*"
 
-# 新策略组定义
+# 定义兼容性更高的策略组
 MY_PROXY_GROUPS = f"""
 # -------------------------- 故障转移组 --------------------------
-香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
-台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
-日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
-狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)"
-美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
+香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(Hong|HK|香港)"
+台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(TW|Taiwan|台湾|臺灣)"
+日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(Japan|JP|日本)"
+狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(Singapore|SG|新加坡|狮城)"
+美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(USA|US|United States|美国)"
 
-# -------------------------- 基础地区组 (纯净化) --------------------------
-HK 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
-TW 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
-JP 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
-US 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
+# -------------------------- 基础地区组 --------------------------
+HK 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(Hong|HK|香港)"
+TW 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(TW|Taiwan|台湾|臺灣)"
+JP 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(Japan|JP|日本)"
+US 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(USA|US|United States|美国)"
 """
 
 MY_CUSTOM_RULES = """
@@ -108,20 +109,20 @@ def merge_config():
         print(f"拉取上游配置失败: {e}")
         return
 
-    # 1. 直接匹配清除包含 url-test,url=http 的旧策略组行（解决含 Emoji 导致无法正则匹配的问题）
+    # 1. 清除旧策略组定义
     content = re.sub(r"^.*url-test,url=http.*$\n?", "", content, flags=re.MULTILINE)
 
-    # 2. 写入清洗后的全新策略组
+    # 2. 插入新策略组
     if "[Proxy Group]" in content:
         content = content.replace("[Proxy Group]\n", f"[Proxy Group]\n{MY_PROXY_GROUPS.strip()}\n\n")
 
-    # 3. 插入自定义优先规则
+    # 3. 插入自定义规则
     if "[Rule]" in content:
         content = content.replace("[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n\n")
 
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
-    print("清洗成功！旧有 url-test 策略组已彻底清除，仅保留高倍率过滤版本。")
+    print("生成完成！现已修复正则表达式语法及小火箭策略组解析问题。")
 
 if __name__ == "__main__":
     merge_config()
