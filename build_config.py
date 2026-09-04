@@ -1,4 +1,5 @@
 import re
+import time
 import urllib.request
 
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
@@ -103,17 +104,25 @@ DOMAIN-KEYWORD,gemini,AI
 DOMAIN-KEYWORD,generativelanguage,AI
 """
 
-def fetch_upstream_config(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "Shadowrocket/2.2.0"})
-    with urllib.request.urlopen(req) as response:
-        return response.read().decode("utf-8")
+def fetch_upstream_config(url, retries=3):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    for attempt in range(1, retries + 1):
+        try:
+            print(f"正在拉取上游配置 (第 {attempt} 次尝试)...")
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=15) as response:
+                return response.read().decode("utf-8")
+        except Exception as e:
+            print(f"第 {attempt} 次拉取失败: {e}")
+            if attempt < retries:
+                time.sleep(3)
+            else:
+                raise RuntimeError(f"无法获取上游配置文件: {e}")
 
 def merge_config():
-    try:
-        content = fetch_upstream_config(UPSTREAM_URL)
-    except Exception as e:
-        print(f"拉取上游配置失败: {e}")
-        return
+    content = fetch_upstream_config(UPSTREAM_URL)
 
     lines = content.splitlines()
     output_lines = []
@@ -124,35 +133,30 @@ def merge_config():
     for line in lines:
         stripped = line.strip()
         
-        # 判断区域头部
         if stripped.startswith("[") and stripped.endswith("]"):
             if stripped.lower() == "[proxy group]":
                 in_proxy_group = True
                 output_lines.append(line)
-                # 紧接着插入我们自定义的核心策略组
                 output_lines.append(MY_CORE_GROUPS.strip())
                 continue
             else:
                 in_proxy_group = False
 
         if in_proxy_group:
-            # 在 [Proxy Group] 区块内，过滤冲突行，保留其余第三方组
             if any(kw in line for kw in skip_keywords):
                 continue
             output_lines.append(line)
         else:
-            # 遇到 [Rule] 时，在顶部插入自定义规则
             if stripped.lower() == "[rule]":
                 output_lines.append(line)
                 output_lines.append(MY_CUSTOM_RULES.strip())
             else:
                 output_lines.append(line)
 
-    # 重新拼接输出文件
     final_content = "\n".join(output_lines)
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(final_content)
-    print("生成成功！逐行状态解析完成，已安全保留所有第三方组并重置自动优选。")
+    print("shadow.conf 写入完毕！已成功生成配置文件。")
 
 if __name__ == "__main__":
     merge_config()
