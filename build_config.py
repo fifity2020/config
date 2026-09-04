@@ -1,31 +1,23 @@
 import re
 import urllib.request
 
-# 1. 填入第三方的远程配置 URL
-
+# 1. Raw 纯文本配置链接
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 2. 你的自定义追加配置
-MY_CUSTOM_GROUPS = """
-# -------------------------- 区域节点分组 --------------------------
-# 已修正：精确使用 \[ 和 \] 转义中括号，排除 [2x] 以上及小数倍率，完美保留香港 01~06
-香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "^(?!(.*(\\[[2-9]x\\]|\\[1[0-9]x\\]|\\[0\.[5-9]x\\]|2倍|3倍))).*(?i)(Hong|HK|香港|🇭🇰)"
-台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "(?i)(TW|Taiwan|台湾|臺灣|🇹🇼)"
-日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "(?i)(Japan|JP|日本|🇯🇵)"
-狮城节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "(?i)(Singapore|SG|新加坡|狮城|🇸🇬)"
-美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "(?i)(USA|US|United States|美国|🇺🇸)"
+# 高倍率排除正则（排除 0.5x~0.9x、1.1x~19x 以及 2倍、3倍等标识）
+NO_HIGH_RATE = r"^(?!(.*(\\[[0-9]+\\.[0-9]+(x|X|倍)\\]?|\\[[2-9](x|X|倍)\\]?|\\[1[0-9](x|X|倍)\\]?|[2-9]倍|1\\.[0-9]倍))).*"
 
-# 自动优选 (低延迟地区汇总)
-自动优选 = url-test, url = "http://www.gstatic.com/generate_204", interval = 300, tolerance = 50, policy-regex-filter = "^(?!(.*(\\[[2-9]x\\]|\\[1[0-9]x\\]|\\[0\.[5-9]x\\]|2倍|3倍))).*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|KR|Korea|韩国)"
-
-# -------------------------- 故障转移组 --------------------------
-香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "^(?!(.*(\\[[2-9]x\\]|\\[1[0-9]x\\]|\\[0\.[5-9]x\\]|2倍|3倍))).*(?i)(Hong|HK|香港)"
-台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "(?i)(TW|Taiwan|台湾|臺灣)"
-日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "(?i)(Japan|JP|日本)"
-狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "(?i)(Singapore|SG|新加坡|狮城)"
-美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "(?i)(USA|US|United States|美国)"
+# 2. 新增上游不存在的策略组（故障转移组）
+NEW_CUSTOM_GROUPS = f"""
+# -------------------------- 故障转移组 (已剔除高倍率) --------------------------
+香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
+台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
+日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
+狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)"
+美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
 """
 
+# 3. 自定义规则
 MY_CUSTOM_RULES = """
 # --------------------------iptv规则--------------------------
 # 台湾节点
@@ -127,22 +119,33 @@ def merge_config():
         print(f"拉取上游配置失败: {e}")
         return
 
-    # 在 [Proxy Group] 下插入你的策略组
+    # 1. 覆写上游同名节点策略组，同时加上高倍率剔除逻辑
+    replacements = {
+        r"^hk\s*香港节点\s*=.*$": f'hk 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|🇭🇰)"',
+        r"^tw\s*台湾节点\s*=.*$": f'tw 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣|🇹🇼)"',
+        r"^jp\s*日本节点\s*=.*$": f'jp 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本|🇯🇵)"',
+        r"^us\s*美国节点\s*=.*$": f'us 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国|🇺🇸)"',
+    }
+
+    for pattern, new_line in replacements.items():
+        content = re.sub(pattern, new_line, content, flags=re.MULTILINE | re.IGNORECASE)
+
+    # 2. 插入新增故障转移策略组
     if "[Proxy Group]" in content:
         content = content.replace(
-            "[Proxy Group]\n", f"[Proxy Group]\n{MY_CUSTOM_GROUPS.strip()}\n"
+            "[Proxy Group]\n", f"[Proxy Group]\n{NEW_CUSTOM_GROUPS.strip()}\n\n"
         )
 
-    # 在 [Rule] 顶部插入你的自定义优先规则
+    # 3. 插入自定义优先规则
     if "[Rule]" in content:
         content = content.replace(
-            "[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n"
+            "[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n\n"
         )
 
-    # 保存生成最终的配置文件
+    # 4. 保存文件
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
-    print("配置文件构建并合并成功！")
+    print("配置文件构建成功！已自动剔除高倍率节点及重复项。")
 
 
 if __name__ == "__main__":
