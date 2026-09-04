@@ -2,7 +2,8 @@ import re
 import urllib.request
 
 # 1. 填入第三方的远程配置 URL
-UPSTREAM_URL = "https://github.com/LingJingMaster/Shadowrocket-Rules/blob/main/Shadowrocket.conf"
+
+UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
 # 2. 你的自定义追加配置
 MY_CUSTOM_GROUPS = """
