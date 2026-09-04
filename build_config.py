@@ -1,25 +1,31 @@
 import re
 import urllib.request
 
-# 1. 纯文本 Raw 链接
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 精确排除高倍率的正则字符串（生成的 conf 中会保持正确的 \[ 和 \]）
+# 1. 构造高倍率排除正则（在生成的 conf 文件中会保持正确的 single backslash \[ 和 \]）
+# 排除包含: 1.x, 2x, 3x, 2倍, 3倍, 1.5倍 等标识
 NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-9](x|X|倍)\]?|[2-9]倍|1\.[0-9]倍))).*"
 
-# 2. 故障转移策略组
-NEW_CUSTOM_GROUPS = f"""
+# 2. 重新定义所有需要的 Proxy Group（确保全都包含 NO_HIGH_RATE）
+MY_PROXY_GROUPS = f"""
 # -------------------------- 故障转移组 (已剔除高倍率) --------------------------
 香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
 台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
 日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
 狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)"
 美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
+
+# -------------------------- 基础地区组 (重写并剔除高倍率) --------------------------
+HK 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
+TW 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
+JP 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
+US 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
 """
 
 # 3. 自定义规则
 MY_CUSTOM_RULES = """
-# --------------------------IPTV规则--------------------------
+# -------------------------- IPTV规则 --------------------------
 DOMAIN-SUFFIX,4gtv.tv,台湾故转
 DOMAIN-SUFFIX,ofissaifreepc.akamaized.net,台湾故转
 DOMAIN-KEYWORD,hamivideo,台湾故转
@@ -74,8 +80,8 @@ IP-CIDR,50.7.158.194/32,日本故转
 IP-CIDR,123.51.231.132/32,台湾故转
 IP-CIDR,60.250.121.103/32,台湾故转
 
-DOMAIN-SUFFIX,lioncdn.net,自动优选
-DOMAIN-SUFFIX,passwdword.xyz,自动优选
+DOMAIN-SUFFIX,lioncdn.net,HK 香港节点
+DOMAIN-SUFFIX,passwdword.xyz,HK 香港节点
 
 # 直连规则
 DOMAIN-SUFFIX,mobaibox.com,DIRECT
@@ -104,29 +110,29 @@ def merge_config():
         print(f"拉取上游配置失败: {e}")
         return
 
-    # 1. 替换/覆写上游原有的地区策略组（完美匹配上游的具体命名格式，如 "🚀 HK 香港节点"）
-    replacements = {
-        r"^.*HK\s*香港节点\s*=.*$": f'HK 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"',
-        r"^.*TW\s*台湾节点\s*=.*$": f'TW 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"',
-        r"^.*JP\s*日本节点\s*=.*$": f'JP 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"',
-        r"^.*US\s*美国节点\s*=.*$": f'US 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"',
-    }
+    # 1. 彻底清除上游中原有的地区旧节点定义（通过正则匹配清洗旧的 HK 香港节点 / tw 台湾节点等行）
+    old_group_patterns = [
+        r"^.*HK\s*香港节点.*$\n?",
+        r"^.*TW\s*台湾节点.*$\n?",
+        r"^.*JP\s*日本节点.*$\n?",
+        r"^.*US\s*美国节点.*$\n?",
+        r"^.*其他节点.*$\n?",
+    ]
+    for pattern in old_group_patterns:
+        content = re.sub(pattern, "", content, flags=re.MULTILINE | re.IGNORECASE)
 
-    for pattern, new_line in replacements.items():
-        content = re.sub(pattern, new_line, content, flags=re.MULTILINE | re.IGNORECASE)
-
-    # 2. 插入故障转移策略组
+    # 2. 注入重新整理好的纯净策略组
     if "[Proxy Group]" in content:
-        content = content.replace("[Proxy Group]\n", f"[Proxy Group]\n{NEW_CUSTOM_GROUPS.strip()}\n\n")
+        content = content.replace("[Proxy Group]\n", f"[Proxy Group]\n{MY_PROXY_GROUPS.strip()}\n\n")
 
     # 3. 插入自定义优先规则
     if "[Rule]" in content:
         content = content.replace("[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n\n")
 
-    # 4. 写回本地配置文件
+    # 4. 写出配置文件
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
-    print("配置文件修复完成：已纠正双斜杠转义并覆写上游原有策略组！")
+    print("配置文件清理并全新整合成功！旧冲突策略组已全数剔除。")
 
 if __name__ == "__main__":
     merge_config()
