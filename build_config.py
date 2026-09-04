@@ -3,18 +3,16 @@ import urllib.request
 
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 精确排除高倍率节点的正则
+# 高倍率节点排除正则
 NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-9](x|X|倍)\]?|[2-9]倍|1\.[0-9]倍))).*"
 
 # 自动优选正则
 AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|KR|Korea|韩国)"
 
-# 自定义策略组配置
-MY_PROXY_GROUPS = f"""
-# -------------------------- 自动优选组 --------------------------
+# 我方自定义强行注入的核心策略组
+MY_CORE_GROUPS = f"""
+# -------------------------- 自动优选与主选择组 --------------------------
 自动优选 = url-test, url = "http://www.gstatic.com/generate_204", interval = 300, tolerance = 50, policy-regex-filter = "{AUTO_TEST_FILTER}"
-
-# -------------------------- 主入口组 (默认首选自动优选) --------------------------
 🚀 节点选择 = select, 自动优选, HK 香港节点, TW 台湾节点, JP 日本节点, US 美国节点, PROXY, DIRECT
 
 # -------------------------- 故障转移组 --------------------------
@@ -117,31 +115,38 @@ def merge_config():
         print(f"拉取上游配置失败: {e}")
         return
 
-    # 1. 仅精准清除上游冲突的旧地区组及选择组，保留第三方业务组（如油管、谷歌、AI服务等）
-    patterns_to_remove = [
-        r"^.*节点选择.*$\n?",
-        r"^.*自动优选.*$\n?",
-        r"^.*(HK|香港)节点.*$\n?",
-        r"^.*(TW|台湾)节点.*$\n?",
-        r"^.*(JP|日本)节点.*$\n?",
-        r"^.*(US|美国)节点.*$\n?",
-        r"^.*其他节点.*$\n?",
-    ]
-    for p in patterns_to_remove:
-        content = re.sub(p, "", content, flags=re.MULTILINE | re.IGNORECASE)
+    # 1. 提取上游 [Proxy Group] 到下一个区块（通常是 [Rule]）之间的全部字符串
+    pg_match = re.search(r"(\[Proxy Group\])(.*?)(?=\n\[)", content, re.DOTALL | re.IGNORECASE)
+    
+    if pg_match:
+        upstream_pg_text = pg_match.group(2)
+        
+        # 按行清洗上游组，仅精确删除冲撞的组，保留所有第三方业务组
+        cleaned_lines = []
+        for line in upstream_pg_text.splitlines():
+            # 需要剔除的冲突键词黑名单
+            skip_keywords = ["节点选择", "自动优选", "香港节点", "台湾节点", "日本节点", "美国节点", "其他节点"]
+            
+            # 如果包含黑名单词汇，则跳过（删掉）
+            if any(kw in line for kw in skip_keywords):
+                continue
+            
+            cleaned_lines.append(line)
+        
+        # 缝合：保留清洗后的第三方上游组 + 插入我们全新的自定义组
+        new_proxy_group_block = "[Proxy Group]\n" + MY_CORE_GROUPS.strip() + "\n" + "\n".join(cleaned_lines)
+        
+        # 替换原有的整个 [Proxy Group] 区块
+        content = content[:pg_match.start()] + new_proxy_group_block + content[pg_match.end():]
 
-    # 2. 插入自定义策略组
-    if "[Proxy Group]" in content:
-        content = content.replace("[Proxy Group]\n", f"[Proxy Group]\n{MY_PROXY_GROUPS.strip()}\n\n")
-
-    # 3. 插入自定义规则
+    # 2. 在 [Rule] 顶部插入自定义 IPTV 及 AI 规则
     if "[Rule]" in content:
         content = content.replace("[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n\n")
 
-    # 4. 保存
+    # 3. 写入 shadow.conf
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
-    print("生成成功！已恢复第三方业务规则组，并替换基础地区策略。")
+    print("生成成功！已完好无损地保留所有第三方策略组，并成功融入低倍率优选方案。")
 
 if __name__ == "__main__":
     merge_config()
