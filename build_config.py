@@ -131,24 +131,26 @@ def merge_config():
     if pg_match:
         upstream_pg_full = pg_match.group(1)
         
-        # 仅以等号左侧（定义的组名）为依据，剔除上游重复定义的顶级组
-        # 使用正则判断行首定义的变量名
-        skip_def_pattern = re.compile(r"^\s*(📌?\s*节点选择|自动优选|HK\s*香港节点|TW\s*台湾节点|JP\s*日本节点|US\s*美国节点|🌐\s*其他节点)\s*=", re.IGNORECASE)
+        # 只要行首定义的变量名中包含以下任意关键字（忽略 Emoji 和空格大小写），一律视为上游冲突行并删除
+        # 例如：🚀 节点选择 =, 📌 节点选择 =, HK 香港节点 =, hk 香港节点 =
+        skip_keywords = ["节点选择", "自动优选", "香港节点", "台湾节点", "日本节点", "美国节点", "其他节点"]
 
         cleaned_upstream_lines = []
         for line in upstream_pg_full.splitlines():
             if line.strip().lower() == "[proxy group]":
                 continue
             
-            # 如果这一行是上游定义冲突组的行，删掉
-            if skip_def_pattern.match(line):
-                continue
+            # 判断是否为策略组定义行（即包含等号 '='）
+            if "=" in line:
+                var_name = line.split("=")[0]
+                if any(kw in var_name for kw in skip_keywords):
+                    continue  # 跳过上游重复定义的顶级策略组行
 
-            # 将上游第三方组中引用的 `📌 节点选择` 替换为我们注入的 `🚀 节点选择`
-            line_modified = line.replace("📌 节点选择", "🚀 节点选择")
+            # 将上游第三方策略组引用的各种形式的“节点选择”统一替换为我们注入的 “🚀 节点选择”
+            line_modified = re.sub(r"(📌|🚀)?\s*节点选择", "🚀 节点选择", line)
             cleaned_upstream_lines.append(line_modified)
 
-        # 缝合策略组
+        # 缝合策略组：自定义组在前，上游第三方组在后
         new_pg_block = "[Proxy Group]\n" + MY_CORE_GROUPS.strip() + "\n" + "\n".join(cleaned_upstream_lines)
         content = content[:pg_match.start()] + new_pg_block + content[pg_match.end():]
 
@@ -161,7 +163,7 @@ def merge_config():
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
     
-    print("shadow.conf 整合完成！已完美保留上游所有第三方业务策略组。")
+    print("shadow.conf 整合成功！重复的节点选择及地区节点已被彻底清理。")
 
 if __name__ == "__main__":
     merge_config()
