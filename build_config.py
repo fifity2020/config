@@ -9,7 +9,7 @@ NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-
 # 自动优选正则
 AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|KR|Korea|韩国)"
 
-# 我方自定义强行注入的核心策略组
+# 自定义核心策略组
 MY_CORE_GROUPS = f"""
 # -------------------------- 自动优选与主选择组 --------------------------
 自动优选 = url-test, url = "http://www.gstatic.com/generate_204", interval = 300, tolerance = 50, policy-regex-filter = "{AUTO_TEST_FILTER}"
@@ -115,38 +115,44 @@ def merge_config():
         print(f"拉取上游配置失败: {e}")
         return
 
-    # 1. 提取上游 [Proxy Group] 到下一个区块（通常是 [Rule]）之间的全部字符串
-    pg_match = re.search(r"(\[Proxy Group\])(.*?)(?=\n\[)", content, re.DOTALL | re.IGNORECASE)
+    lines = content.splitlines()
+    output_lines = []
     
-    if pg_match:
-        upstream_pg_text = pg_match.group(2)
+    in_proxy_group = False
+    skip_keywords = ["节点选择", "自动优选", "香港节点", "台湾节点", "日本节点", "美国节点", "其他节点"]
+
+    for line in lines:
+        stripped = line.strip()
         
-        # 按行清洗上游组，仅精确删除冲撞的组，保留所有第三方业务组
-        cleaned_lines = []
-        for line in upstream_pg_text.splitlines():
-            # 需要剔除的冲突键词黑名单
-            skip_keywords = ["节点选择", "自动优选", "香港节点", "台湾节点", "日本节点", "美国节点", "其他节点"]
-            
-            # 如果包含黑名单词汇，则跳过（删掉）
+        # 判断区域头部
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if stripped.lower() == "[proxy group]":
+                in_proxy_group = True
+                output_lines.append(line)
+                # 紧接着插入我们自定义的核心策略组
+                output_lines.append(MY_CORE_GROUPS.strip())
+                continue
+            else:
+                in_proxy_group = False
+
+        if in_proxy_group:
+            # 在 [Proxy Group] 区块内，过滤冲突行，保留其余第三方组
             if any(kw in line for kw in skip_keywords):
                 continue
-            
-            cleaned_lines.append(line)
-        
-        # 缝合：保留清洗后的第三方上游组 + 插入我们全新的自定义组
-        new_proxy_group_block = "[Proxy Group]\n" + MY_CORE_GROUPS.strip() + "\n" + "\n".join(cleaned_lines)
-        
-        # 替换原有的整个 [Proxy Group] 区块
-        content = content[:pg_match.start()] + new_proxy_group_block + content[pg_match.end():]
+            output_lines.append(line)
+        else:
+            # 遇到 [Rule] 时，在顶部插入自定义规则
+            if stripped.lower() == "[rule]":
+                output_lines.append(line)
+                output_lines.append(MY_CUSTOM_RULES.strip())
+            else:
+                output_lines.append(line)
 
-    # 2. 在 [Rule] 顶部插入自定义 IPTV 及 AI 规则
-    if "[Rule]" in content:
-        content = content.replace("[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n\n")
-
-    # 3. 写入 shadow.conf
+    # 重新拼接输出文件
+    final_content = "\n".join(output_lines)
     with open("shadow.conf", "w", encoding="utf-8") as f:
-        f.write(content)
-    print("生成成功！已完好无损地保留所有第三方策略组，并成功融入低倍率优选方案。")
+        f.write(final_content)
+    print("生成成功！逐行状态解析完成，已安全保留所有第三方组并重置自动优选。")
 
 if __name__ == "__main__":
     merge_config()
