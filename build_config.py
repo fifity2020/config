@@ -3,10 +3,10 @@ import urllib.request
 
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 精确排除高倍率节点的正则（针对 0.x / 1.x / 2x / 2倍 等）
+# 精确排除高倍率节点的正则
 NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-9](x|X|倍)\]?|[2-9]倍|1\.[0-9]倍))).*"
 
-# 自动优选正则：过滤低延迟常用地区，且排除高倍率节点
+# 自动优选正则
 AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|KR|Korea|韩国)"
 
 # 自定义策略组配置
@@ -117,23 +117,31 @@ def merge_config():
         print(f"拉取上游配置失败: {e}")
         return
 
-    # 1. 彻底清除上游旧的 url-test 策略组、节点选择组、自动优选组
-    content = re.sub(r"^.*url-test,url=http.*$\n?", "", content, flags=re.MULTILINE)
-    content = re.sub(r"^.*节点选择.*$\n?", "", content, flags=re.MULTILINE)
-    content = re.sub(r"^.*自动优选.*$\n?", "", content, flags=re.MULTILINE)
+    # 1. 仅精准清除上游冲突的旧地区组及选择组，保留第三方业务组（如油管、谷歌、AI服务等）
+    patterns_to_remove = [
+        r"^.*节点选择.*$\n?",
+        r"^.*自动优选.*$\n?",
+        r"^.*(HK|香港)节点.*$\n?",
+        r"^.*(TW|台湾)节点.*$\n?",
+        r"^.*(JP|日本)节点.*$\n?",
+        r"^.*(US|美国)节点.*$\n?",
+        r"^.*其他节点.*$\n?",
+    ]
+    for p in patterns_to_remove:
+        content = re.sub(p, "", content, flags=re.MULTILINE | re.IGNORECASE)
 
-    # 2. 在 [Proxy Group] 下追加全新的策略组（自动优选置顶）
+    # 2. 插入自定义策略组
     if "[Proxy Group]" in content:
         content = content.replace("[Proxy Group]\n", f"[Proxy Group]\n{MY_PROXY_GROUPS.strip()}\n\n")
 
-    # 3. 在 [Rule] 顶部插入自定义规则
+    # 3. 插入自定义规则
     if "[Rule]" in content:
         content = content.replace("[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n\n")
 
-    # 4. 写出配置文件
+    # 4. 保存
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
-    print("配置文件生成成功！全局节点选择已重置为默认‘自动优选’。")
+    print("生成成功！已恢复第三方业务规则组，并替换基础地区策略。")
 
 if __name__ == "__main__":
     merge_config()
