@@ -3,27 +3,25 @@ import urllib.request
 
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 1. 构造高倍率排除正则（在生成的 conf 文件中会保持正确的 single backslash \[ 和 \]）
-# 排除包含: 1.x, 2x, 3x, 2倍, 3倍, 1.5倍 等标识
+# 精确排除高倍率节点的正则（针对 0.x/1.x/2x/倍 等）
 NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-9](x|X|倍)\]?|[2-9]倍|1\.[0-9]倍))).*"
 
-# 2. 重新定义所有需要的 Proxy Group（确保全都包含 NO_HIGH_RATE）
+# 新策略组定义
 MY_PROXY_GROUPS = f"""
-# -------------------------- 故障转移组 (已剔除高倍率) --------------------------
+# -------------------------- 故障转移组 --------------------------
 香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
 台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
 日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
 狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)"
 美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
 
-# -------------------------- 基础地区组 (重写并剔除高倍率) --------------------------
+# -------------------------- 基础地区组 (纯净化) --------------------------
 HK 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
 TW 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
 JP 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
 US 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
 """
 
-# 3. 自定义规则
 MY_CUSTOM_RULES = """
 # -------------------------- IPTV规则 --------------------------
 DOMAIN-SUFFIX,4gtv.tv,台湾故转
@@ -110,18 +108,10 @@ def merge_config():
         print(f"拉取上游配置失败: {e}")
         return
 
-    # 1. 彻底清除上游中原有的地区旧节点定义（通过正则匹配清洗旧的 HK 香港节点 / tw 台湾节点等行）
-    old_group_patterns = [
-        r"^.*HK\s*香港节点.*$\n?",
-        r"^.*TW\s*台湾节点.*$\n?",
-        r"^.*JP\s*日本节点.*$\n?",
-        r"^.*US\s*美国节点.*$\n?",
-        r"^.*其他节点.*$\n?",
-    ]
-    for pattern in old_group_patterns:
-        content = re.sub(pattern, "", content, flags=re.MULTILINE | re.IGNORECASE)
+    # 1. 直接匹配清除包含 url-test,url=http 的旧策略组行（解决含 Emoji 导致无法正则匹配的问题）
+    content = re.sub(r"^.*url-test,url=http.*$\n?", "", content, flags=re.MULTILINE)
 
-    # 2. 注入重新整理好的纯净策略组
+    # 2. 写入清洗后的全新策略组
     if "[Proxy Group]" in content:
         content = content.replace("[Proxy Group]\n", f"[Proxy Group]\n{MY_PROXY_GROUPS.strip()}\n\n")
 
@@ -129,10 +119,9 @@ def merge_config():
     if "[Rule]" in content:
         content = content.replace("[Rule]\n", f"[Rule]\n{MY_CUSTOM_RULES.strip()}\n\n")
 
-    # 4. 写出配置文件
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
-    print("配置文件清理并全新整合成功！旧冲突策略组已全数剔除。")
+    print("清洗成功！旧有 url-test 策略组已彻底清除，仅保留高倍率过滤版本。")
 
 if __name__ == "__main__":
     merge_config()
