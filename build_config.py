@@ -14,7 +14,7 @@ AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|
 MY_CORE_GROUPS = f"""
 # -------------------- 自动优选与主选择组 --------------------
 自动优选 = url-test, url=http://www.gstatic.com/generate_204, interval=300, tolerance=50, policy-regex-filter={AUTO_TEST_FILTER}
-🚀 节点选择 = select, 自动优选, PROXY, DIRECT, REJECT, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇺🇸 美国节点, 🇸🇬 狮城节点, 🌐 其他节点
+🚀 节点选择 = select, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇺🇸 美国节点, 🇸🇬 狮城节点,自动优选, PROXY, DIRECT, REJECT,  🌐 其他节点
 
 # -------------------- 故障转移组 --------------------
 🇭🇰 香港故障转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Hong|HK|香港)
