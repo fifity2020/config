@@ -1,1 +1,2 @@
 自用openclash\clash-party\shadowsocket配置
+利用LingJingMaster仓库的Shadowrocket.conf，action自己的shadow配置。主要加入了一些分流。
