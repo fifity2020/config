@@ -12,24 +12,27 @@ AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|
 
 # 我方自定义强行注入的核心策略组
 MY_CORE_GROUPS = f"""
-# -------------------------- 自动优选与主选择组 --------------------------
-自动优选 = url-test, url = "http://www.gstatic.com/generate_204", interval = 300, tolerance = 50, policy-regex-filter = "{AUTO_TEST_FILTER}"
-🚀 节点选择 = select, 自动优选, HK 香港节点, TW 台湾节点, JP 日本节点, US 美国节点, PROXY, DIRECT
+# 我方自定义强行注入的核心策略组
+MY_CORE_GROUPS = f"""
+# -------------------- 自动优选与主选择组 --------------------
+自动优选 = url-test, url=http://www.gstatic.com/generate_204, interval=300, tolerance=50, policy-regex-filter={AUTO_TEST_FILTER}
+🚀 节点选择 = select, 自动优选, PROXY, DIRECT, REJECT, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇺🇸 美国节点, 🇸🇬 狮城节点, 🌐 其他节点
 
-# -------------------------- 故障转移组 --------------------------
-香港故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
-台湾故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
-日本故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
-狮城故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)"
-美国故转 = fallback, url = "http://www.gstatic.com/generate_204", interval = 120, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
+# -------------------- 故障转移组 --------------------
+🇭🇰 香港故障转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Hong|HK|香港)
+🇹🇼 台湾故障转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)
+🇯🇵 日本故障转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Japan|JP|日本)
+🇸🇬 狮城故障转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)
+🇺🇸 美国故障转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)
 
-# -------------------------- 基础地区组 --------------------------
-HK 香港节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Hong|HK|香港)"
-TW 台湾节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)"
-JP 日本节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(Japan|JP|日本)"
-US 美国节点 = url-test, url = "http://www.gstatic.com/generate_204", interval = 600, tolerance = 50, policy-regex-filter = "{NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)"
+# -------------------- 基础地区组 --------------------
+🇭🇰 香港节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Hong|HK|香港)
+🇹🇼 台湾节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)
+🇯🇵 日本节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Japan|JP|日本)
+🇸🇬 狮城节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)
+🇺🇸 美国节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)
+🌐 其他节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter=^((?!(Hong|HK|香港|TW|Taiwan|台湾|臺灣|Japan|JP|日本|Singapore|SG|新加坡|狮城|USA|US|United States|美国)).)*$
 """
-
 MY_CUSTOM_RULES = """
 # -------------------------- IPTV规则 --------------------------
 DOMAIN-SUFFIX,4gtv.tv,台湾故转
