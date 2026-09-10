@@ -4,14 +4,15 @@ import urllib.request
 
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 高倍率节点排除正则
-NO_HIGH_RATE = r"^(?!(.*(\[[0-9]+\.[0-9]+(x|X|倍)\]?|\[[2-9](x|X|倍)\]?|\[1[0-9](x|X|倍)\]?|[2-9]倍|1\.[0-9]倍))).*"
+# 高倍率节点排除正
+NO_HIGH_RATE = r"^(?!.*([2-9]\d*(\.\d+)?|1\.[1-9]\d*)(x|X|倍)).*"
 
-# 全局自动优选正则
+# 自动优选正则
 AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|KR|Korea|韩国)"
 
-# 🤖 AI 专用优选正则（只挑选 JP / TW / SG / US 干净节点，排除了香港）
+# 🤖 AI 专用优选正则（剔除香港与高倍率）
 AI_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Japan|JP|日本|TW|Taiwan|台湾|SG|Singapore|新加坡|USA|US|美国)"
+
 
 # 自定义核心策略组（新增 🤖 AI 优选 专用自动测速）
 MY_CORE_GROUPS = f"""
