@@ -110,7 +110,10 @@ def fetch_upstream_config(url, retries=3):
 def merge_config():
     content = fetch_upstream_config(UPSTREAM_URL)
 
-    # 1. 修复上游 DNS 锁死 BUG（确保节点延迟测试能通过）
+    def merge_config():
+    content = fetch_upstream_config(UPSTREAM_URL)
+
+    # 1. 防止 DNS 锁死
     content = re.sub(
         r"dns-server\s*=\s*https://cloudflare-dns\.com/dns-query#proxy",
         "dns-server = 223.5.5.5, 119.29.29.29, https://dns.alidns.com/dns-query",
@@ -122,7 +125,14 @@ def merge_config():
         content,
     )
 
-    # 2. 提取并清洗 [Proxy Group]
+    # 2. 注入全局测速参数：将参数直接拼接到 [General] 标题下方
+    general_params = """[General]
+url-test-url = http://www.gstatic.com/generate_204
+url-test-timeout = 5"""
+
+    content = re.sub(r"\[General\]", general_params, content, flags=re.IGNORECASE, count=1)
+
+    # 3. 提取并清洗 [Proxy Group]
     pg_pattern = re.compile(
         r"(\[Proxy Group\][\s\S]*?)(?=\n\[|\Z)", re.IGNORECASE
     )
@@ -131,7 +141,7 @@ def merge_config():
     if pg_match:
         upstream_pg_full = pg_match.group(1)
 
-        # 清理上游重复的策略组，避免覆盖我方的 AI 组和核心组
+        # 清理上游重复的策略组，避免覆盖自己的 AI 组和核心组
         skip_keywords = [
             "节点选择",
             "自动优选",
