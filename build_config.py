@@ -106,11 +106,7 @@ def fetch_upstream_config(url, retries=3):
             else:
                 raise RuntimeError(f"无法获取上游配置文件: {e}")
 
-
 def merge_config():
-    content = fetch_upstream_config(UPSTREAM_URL)
-
-    def merge_config():
     content = fetch_upstream_config(UPSTREAM_URL)
 
     # 1. 防止 DNS 锁死
@@ -190,14 +186,14 @@ url-test-timeout = 5"""
             + content[pg_match.end() :]
         )
 
-    # 3. 插入自定义规则至 [Rule] 顶端
+    # 4. 插入自定义规则至 [Rule] 顶端
     rule_pattern = re.compile(r"(\[Rule\])", re.IGNORECASE)
     if rule_pattern.search(content):
         content = rule_pattern.sub(
             r"\1\n" + MY_CUSTOM_RULES, content, count=1
         )
 
-    # 4. 写入文件
+    # 5. 写入文件
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
 
