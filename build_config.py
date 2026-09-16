@@ -17,7 +17,7 @@ AI_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Japan|JP|日本|TW|Taiwan|台湾|SG|Sing
 # 自定义核心策略组（新增 🤖 AI 优选 专用自动测速）
 MY_CORE_GROUPS = f"""
 # -------------------- 自动优选与主选择组 --------------------
-自动优选 = url-test, url=http://www.gstatic.com/generate_204, interval=300, tolerance=50, policy-regex-filter={AUTO_TEST_FILTER}
+自动优选 = url-test, url=https://www.gstatic.com/generate_204, interval=300, tolerance=50, policy-regex-filter={AUTO_TEST_FILTER}
 🚀 节点选择 = select, 自动优选, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇺🇸 美国节点, 🇸🇬 狮城节点, PROXY, DIRECT, REJECT, 🌐 其他节点
 
 # -------------------- AI 专属策略组 --------------------
@@ -25,19 +25,19 @@ MY_CORE_GROUPS = f"""
 🤖 AI 服务 = select, 🤖 AI 优选, 🇯🇵 日本节点, 🇹🇼 台湾节点, 🇸🇬 狮城节点, 🇺🇸 美国节点, 🚀 节点选择
 
 # -------------------- 故障转移组 --------------------
-🇭🇰 香港故转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Hong|HK|香港)
-🇹🇼 台湾故转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)
-🇯🇵 日本故转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Japan|JP|日本)
-🇸🇬 狮城故转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)
-🇺🇸 美国故转 = fallback, url=http://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)
+🇭🇰 香港故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Hong|HK|香港)
+🇹🇼 台湾故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)
+🇯🇵 日本故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Japan|JP|日本)
+🇸🇬 狮城故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)
+🇺🇸 美国故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)
 
 # -------------------- 基础地区组 --------------------
-🇭🇰 香港节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Hong|HK|香港)
-🇹🇼 台湾节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)
-🇯🇵 日本节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Japan|JP|日本)
-🇸🇬 狮城节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)
-🇺🇸 美国节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)
-🌐 其他节点 = url-test, url=http://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter=^((?!(Hong|HK|香港|TW|Taiwan|台湾|臺灣|Japan|JP|日本|Singapore|SG|新加坡|狮城|USA|US|United States|美国)).)*$
+🇭🇰 香港节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Hong|HK|香港)
+🇹🇼 台湾节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(TW|Taiwan|台湾|臺灣)
+🇯🇵 日本节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Japan|JP|日本)
+🇸🇬 狮城节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(Singapore|SG|新加坡|狮城)
+🇺🇸 美国节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={NO_HIGH_RATE}.*(?i)(USA|US|United States|美国)
+🌐 其他节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter=^((?!(Hong|HK|香港|TW|Taiwan|台湾|臺灣|Japan|JP|日本|Singapore|SG|新加坡|狮城|USA|US|United States|美国)).)*$
 """.strip()
 
 # 自定义注入规则（增强 AI 与 开发者/代码 规则）
@@ -123,7 +123,7 @@ def merge_config():
 
     # 2. 注入全局测速参数：将参数直接拼接到 [General] 标题下方
     general_params = """[General]
-url-test-url = http://www.gstatic.com/generate_204
+url-test-url = https://www.gstatic.com/generate_204
 url-test-timeout = 5"""
 
     content = re.sub(r"\[General\]", general_params, content, flags=re.IGNORECASE, count=1)
