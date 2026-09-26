@@ -94,6 +94,61 @@ DOMAIN-SUFFIX,ofiii.com,🇹🇼 台湾故转
 DOMAIN-SUFFIX,livednow.com,🇹🇼 台湾故转
 DOMAIN-SUFFIX,hinet.net,🇹🇼 台湾故转
 
+DOMAIN-SUFFIX,todesk.com,🔯 美国故转  
+DOMAIN-SUFFIX,789505.xyz,🔯 美国故转
+DOMAIN-SUFFIX,706726.xyz,🔯 美国故转
+DOMAIN-SUFFIX,163189.xyz,🔯 美国故转
+DOMAIN-SUFFIX,zenfit.cfd,🔯 美国故转
+DOMAIN-SUFFIX,pixman.passwdwork.cc.cd,🔯 美国故转
+DOMAIN-SUFFIX,pixman.us.ci,🔯 美国故转
+DOMAIN-SUFFIX,cdnipcs.com,🔯 美国故转
+DOMAIN-SUFFIX,test96.178.indevs.in,🔯 美国故转
+DOMAIN-SUFFIX,tuta.com,🔯 美国故转
+DOMAIN-SUFFIX,astro.com,🔯 美国故转
+DOMAIN-SUFFIX,veloxmedia.com,🔯 美国故转
+DOMAIN-SUFFIX,newtvsuper.com,🔯 美国故转
+DOMAIN-SUFFIX,iptv.vip-tptv.xyz,🔯 美国故转
+DOMAIN-SUFFIX,migu.8plus.eu.org,🔯 美国故转
+DOMAIN-SUFFIX,nodeseek.com,🔯 美国故转
+DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
+DOMAIN-SUFFIX,catvod.com,🔯 美国故转
+DOMAIN-SUFFIX,go-iptv.ggff.net,🔯 美国故转
+DOMAIN-SUFFIX,go-iptv.us.ci,🔯 美国故转
+DOMAIN-SUFFIX,z2u.com,🔯 美国故转
+DOMAIN-SUFFIX,amazonaws.com,🔯 美国故转
+DOMAIN-SUFFIX,cloudflare.com,🔯 美国故转
+DOMAIN-SUFFIX,qzz.io,🔯 美国故转
+DOMAIN-SUFFIX,bee.tzh911.qzz.io,🔯 美国故转
+DOMAIN-SUFFIX,pendy.dpdns.org,🔯 美国故转
+DOMAIN-SUFFIX,wrod.diver.eu.org,🔯 美国故转
+DOMAIN-SUFFIX,judy.xx.kg,🔯 美国故转
+DOMAIN-SUFFIX,8plus.eu.org,🔯 美国故转
+DOMAIN-SUFFIX,ru8.dpdns.org,🔯 美国故转
+DOMAIN-SUFFIX,vip-tptv.xyz,🔯 美国故转
+DOMAIN-SUFFIX,password.xyz,🔯 美国故转
+DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
+DOMAIN-SUFFIX,diver.eu.org,🔯 美国故转
+DOMAIN-SUFFIX,r2.hfyrw.com,🔯 美国故转
+DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
+
+  
+
+DOMAIN-KEYWORD,astro,🔯 狮城故转
+DOMAIN-KEYWORD,wavve,🔯 狮城故转
+DOMAIN-SUFFIX,starhubgo.com,🔯 狮城故转
+DOMAIN-SUFFIX,stream-link.org,🔯 狮城故转
+ 
+DOMAIN-SUFFIX,cloudflare.com,🔯 香港故转
+DOMAIN-SUFFIX,cloudflaremirrors.com,🔯 香港故转
+DOMAIN-KEYWORD,mytv265,🔯 香港故转
+DOMAIN-SUFFIX,now.com,🔯 香港故转
+DOMAIN-SUFFIX,now-tv.com,🔯 香港故转
+DOMAIN-SUFFIX,ovhcloud.com,🔯 香港故转
+DOMAIN-SUFFIX,tvb.com,🔯 香港故转
+DOMAIN-SUFFIX,hrtn.net,🔯 香港故转
+DOMAIN-SUFFIX,4gtv.passwd.bond,🔯 香港故转
+DOMAIN-SUFFIX,852851.xyz,🔯 香港故转
+
 IP-CIDR,50.7.158.194/32,🇯🇵 日本故转
 IP-CIDR,123.51.231.132/32,🇹🇼 台湾故转
 
