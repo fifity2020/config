@@ -28,7 +28,7 @@ MY_CORE_GROUPS = f"""
 🚀 节点选择 = select, 自动优选, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🇺🇸 美国节点, PROXY, DIRECT, REJECT, 🌐 其他节点
 
 # -------------------- AI 专属策略组 --------------------
-🤖 AI 优选 = url-test, url=https://gemini.google.com, interval=300, tolerance=50, policy-regex-filter={FILTER_JP}|{FILTER_TW}|{FILTER_SG}|{FILTER_US}
+🤖 AI 优选 = url-test, url=https://www.gstatic.com/generate_204, interval=300, tolerance=50, policy-regex-filter={FILTER_JP}|{FILTER_TW}|{FILTER_SG}|{FILTER_US}
 🤖 AI 服务 = select, 🤖 AI 优选, 🇯🇵 日本节点, 🇹🇼 台湾节点, 🇸🇬 狮城节点, 🇺🇸 美国节点, 🚀 节点选择
 
 # -------------------- 故障转移组 --------------------
