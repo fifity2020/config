@@ -1,170 +1,233 @@
+import os
 import re
 import time
 import urllib.request
 
 UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Rules/main/Shadowrocket.conf"
 
-# 高倍率节点排除正
+# 本地规则文件: 与 clash-adapter 的 my_rules.yaml 对应的自定义内容
+MY_RULES_FILE = "my_rules.conf"
+# 生成的远端规则集输出目录 (提交到仓库后, 由 RULES_BASE_URL 引用)
+RULES_OUT_DIR = "rules"
+# 远端规则集基地址: 填你自己的 GitHub 用户名即可, 仓库名 config、分支 main 已按截图填好:
+#   https://raw.githubusercontent.com/<用户名>/config/main/rules
+# 构建时每个内联 / 转换型 RuleSet 生成 rules/<名>.list, 主配置引用
+#   RULE-SET,<RULES_BASE_URL>/<名>.list,<policy>
+RULES_BASE_URL = "https://raw.githubusercontent.com/<用户名>/config/main/rules"
+
+# 高倍率节点排除正 (仅作保留, 当前未接入组过滤器: Shadowrocket 不支持前瞻,
+# 接入会清空分组, 详见 2026-10-07 验证)
 NO_HIGH_RATE = r"^(?!.*([2-9]\d*(\.\d+)?|1\.[1-9]\d*)(x|X|倍)).*"
 
-# 自动优选正则
-AUTO_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|KR|Korea|韩国)"
+# Clash payload 中可原样转入 Shadowrocket 的规则类型, 其余丢弃并计数警告
+SR_COMPAT_TYPES = {
+    "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD",
+    "GEOIP", "IP-CIDR", "IP-CIDR6",
+}
+# payload 行中保留的 flag (其余尾字段, 如 Clash 的策略名, 剥离)
+KEPT_FLAGS = {"no-resolve"}
 
-# 🤖 AI 专用优选正则（剔除香港与高倍率）
-AI_TEST_FILTER = f"{NO_HIGH_RATE}.*(?i)(Japan|JP|日本|TW|Taiwan|台湾|SG|Singapore|新加坡|USA|US|美国)"
+RULE_TYPES = {
+    "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "DOMAIN-REGEX",
+    "GEOIP", "IP-CIDR", "IP-CIDR6", "IP-ASN", "DST-PORT", "SRC-PORT",
+    "URL-REGEX", "USER-AGENT", "PROCESS-NAME", "AND", "OR", "NOT",
+}
 
-#地区正则
-# 排除高倍率：匹配 1.x / 2x / 3x 等高倍率标识（若无高倍率可留空或简化）
-FILTER_HK = "(?i)(Hong|HK|香港)"
-FILTER_TW = "(?i)(TW|Taiwan|台湾|臺灣)"
-FILTER_JP = "(?i)(Japan|JP|日本)"
-FILTER_SG = "(?i)(Singapore|SG|新加坡|狮城)"
-FILTER_US = "(?i)(USA|US|United States|美国)"
 
-# 自定义核心策略组 （ 🤖 AI 优选 专用自动测速） 
-MY_CORE_GROUPS = f"""
-# -------------------- 自动优选与主选择组 --------------------
-自动优选 = url-test, url=https://www.gstatic.com/generate_204, interval=300, tolerance=50, policy-regex-filter=(?i)(Hong|HK|香港|TW|Taiwan|台湾|Japan|JP|日本|SG|Singapore|新加坡|USA|US|美国)
-🚀 节点选择 = select, 自动优选, 🇭🇰 香港节点, 🇹🇼 台湾节点, 🇯🇵 日本节点, 🇸🇬 狮城节点, 🇺🇸 美国节点, PROXY, DIRECT, REJECT, 🌐 其他节点
+def parse_my_rules(path):
+    """解析 my_rules.conf, 返回 (proxy_group_block, rule_sets).
 
-# -------------------- AI 专属策略组 --------------------
-🤖 AI 优选 = url-test, url=https://www.gstatic.com/generate_204, interval=300, tolerance=50, policy-regex-filter={FILTER_JP}|{FILTER_TW}|{FILTER_SG}|{FILTER_US}
-🤖 AI 服务 = select, 🤖 AI 优选, 🇯🇵 日本节点, 🇹🇼 台湾节点, 🇸🇬 狮城节点, 🇺🇸 美国节点, 🚀 节点选择
+    rule_sets: list of dicts: {name, policy, url, source, format, rules}
+      - url: 远端已有 Shadowrocket 格式规则集, 直接引用, 不下载
+      - source + format: 远端其他格式规则集, 构建时拉取并转换, 生成 rules/<名>.list
+          format: clash-yaml | domain-list | shadowrocket
+      - rules: 内联规则, 生成 rules/<名>.list
+    """
+    proxy_lines = []
+    rule_sets = []
+    current = None  # (kind, payload)
 
-# -------------------- 故障转移组 --------------------
-🇭🇰 香港故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={FILTER_HK}
-🇹🇼 台湾故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={FILTER_TW}
-🇯🇵 日本故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={FILTER_JP}
-🇸🇬 狮城故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={FILTER_SG}
-🇺🇸 美国故转 = fallback, url=https://www.gstatic.com/generate_204, interval=120, policy-regex-filter={FILTER_US}
+    with open(path, encoding="utf-8") as f:
+        for raw in f:
+            line = raw.rstrip("\n")
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            m = re.match(r"\[Proxy Group\]", stripped, re.IGNORECASE)
+            if m:
+                current = ("proxy", None)
+                continue
+            m = re.match(r"\[RuleSet\s+([^\]]+)\]", stripped, re.IGNORECASE)
+            if m:
+                current = ("ruleset", {
+                    "name": m.group(1).strip(),
+                    "policy": None,
+                    "url": None,
+                    "source": None,
+                    "format": "shadowrocket",
+                    "rules": [],
+                })
+                rule_sets.append(current[1])
+                continue
+            if current is None:
+                continue
+            if current[0] == "proxy":
+                proxy_lines.append(line)
+            else:
+                rs = current[1]
+                low = stripped.lower()
+                if low.startswith("policy"):
+                    rs["policy"] = stripped.split("=", 1)[1].strip()
+                elif low.startswith("url"):
+                    rs["url"] = stripped.split("=", 1)[1].strip()
+                elif low.startswith("source"):
+                    rs["source"] = stripped.split("=", 1)[1].strip()
+                elif low.startswith("format"):
+                    rs["format"] = stripped.split("=", 1)[1].strip().lower()
+                else:
+                    rs["rules"].append(stripped)
 
-# -------------------- 基础地区组 --------------------
-🇭🇰 香港节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={FILTER_HK}
-🇹🇼 台湾节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={FILTER_TW}
-🇯🇵 日本节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={FILTER_JP}
-🇸🇬 狮城节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={FILTER_SG}
-🇺🇸 美国节点 = url-test, url=https://www.gstatic.com/generate_204, interval=600, tolerance=50, policy-regex-filter={FILTER_US}
-🌐 其他节点 = select, PROXY, DIRECT
-""".strip()
+    for rs in rule_sets:
+        if not rs["policy"]:
+            raise ValueError(f"RuleSet {rs['name']} 缺少 policy")
+        if not rs["url"] and not rs["source"] and not rs["rules"]:
+            raise ValueError(f"RuleSet {rs['name']} 既无 url/source 也无规则")
+        if rs["source"] and rs["format"] not in ("clash-yaml", "domain-list", "shadowrocket"):
+            raise ValueError(f"RuleSet {rs['name']} format 不支持: {rs['format']}")
 
-# 自定义注入规则（增强 AI 与 开发者/代码 规则）
-MY_CUSTOM_RULES = """
-# -------------------------- Gemini & OpenAI 专属高优先级分流 --------------------------
-DOMAIN-KEYWORD,alkalimakersuite,🤖 AI 服务
-DOMAIN-KEYWORD,openai,🤖 AI 服务
-DOMAIN-KEYWORD,chatgpt,🤖 AI 服务
-DOMAIN-KEYWORD,anthropic,🤖 AI 服务
-DOMAIN-KEYWORD,claude,🤖 AI 服务
-DOMAIN-SUFFIX,bard.google.com,🤖 AI 服务
-DOMAIN-SUFFIX,gemini.google.com,🤖 AI 服务
-DOMAIN-SUFFIX,generativelanguage.googleapis.com,🤖 AI 服务
-DOMAIN-SUFFIX,ai.google.dev,🤖 AI 服务
-DOMAIN-SUFFIX,deepmind.com,🤖 AI 服务
-DOMAIN-SUFFIX,deepmind.google,🤖 AI 服务
-DOMAIN-SUFFIX,muse.ai,🤖 AI 服务
-DOMAIN-KEYWORD,muse,🤖 AI 服务
-DOMAIN-SUFFIX,auth0.com,🤖 AI 服务
+    return "\n".join(proxy_lines).strip(), rule_sets
 
-# -------------------------- 代码托管与开发者服务 --------------------------
-DOMAIN-KEYWORD,github,🐱 代码托管
-DOMAIN-SUFFIX,github.com,🐱 代码托管
-DOMAIN-SUFFIX,githubusercontent.com,🐱 代码托管
-DOMAIN-SUFFIX,gitlab.com,🐱 代码托管
-DOMAIN-SUFFIX,docker.com,🐱 代码托管
-DOMAIN-SUFFIX,docker.io,🐱 代码托管
 
-# --- Telegram 优先匹配 ---
-DOMAIN-KEYWORD,telegram,🚀 节点选择
-DOMAIN-KEYWORD,t.me,🚀 节点选择
-IP-CIDR,91.108.4.0/22,🚀 节点选择,no-resolve
-IP-CIDR,149.154.160.0/20,🚀 节点选择,no-resolve
-GEOIP,TELEGRAM,🚀 节点选择
+def fetch_text(url, timeout=20):
+    """拉取远端规则源文本. 返回 None 表示失败 (含 HTML 验证页等非规则内容)."""
+    headers = {"User-Agent": "clash.meta"}
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            text = resp.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        print(f"  拉取失败 {url}: {e}")
+        return None
+    if "<!DOCTYPE" in text[:512] or "<html" in text[:512]:
+        print(f"  拉取到 HTML (验证页/错误页), 视为失败: {url}")
+        return None
+    return text
 
-# --- X (Twitter) 优先匹配 ---
-DOMAIN-SUFFIX,x.com,🚀 节点选择
-DOMAIN-SUFFIX,twitter.com,🚀 节点选择
-DOMAIN-SUFFIX,twimg.com,🚀 节点选择
-DOMAIN-SUFFIX,t.co,🚀 节点选择
 
-# -------------------------- IPTV 规则 --------------------------
-DOMAIN-SUFFIX,4gtv.tv,🇹🇼 台湾故转
-DOMAIN-SUFFIX,ofissaifreepc.akamaized.net,🇹🇼 台湾故转
-DOMAIN-KEYWORD,hamivideo,🇹🇼 台湾故转
-DOMAIN-SUFFIX,akamaized.net,🇹🇼 台湾故转
-DOMAIN-SUFFIX,163189.xyz,🇹🇼 台湾故转
-DOMAIN-SUFFIX,litv.tv,🇹🇼 台湾故转
-DOMAIN-SUFFIX,ofiii.com,🇹🇼 台湾故转
-DOMAIN-SUFFIX,livednow.com,🇹🇼 台湾故转
-DOMAIN-SUFFIX,hinet.net,🇹🇼 台湾故转
+def convert_clash_yaml(text):
+    """Clash YAML payload -> Shadowrocket 裸规则. 返回 (rules, dropped)."""
+    rules, dropped = [], 0
+    in_payload = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("payload:"):
+            in_payload = True
+            continue
+        if not in_payload:
+            continue
+        if line.startswith("- "):
+            line = line[2:].strip()
+        if not line or line.startswith("#"):
+            continue
+        # 去引号
+        if len(line) >= 2 and line[0] == line[-1] and line[0] in "\"'":
+            line = line[1:-1]
+        fields = [f.strip() for f in line.split(",")]
+        rtype = fields[0].upper()
+        if rtype not in SR_COMPAT_TYPES or len(fields) < 2:
+            dropped += 1
+            continue
+        kept = fields[:2] + [f for f in fields[2:] if f in KEPT_FLAGS]
+        rules.append(",".join(kept))
+    return rules, dropped
 
-DOMAIN-SUFFIX,todesk.com,🔯 美国故转  
-DOMAIN-SUFFIX,789505.xyz,🔯 美国故转
-DOMAIN-SUFFIX,706726.xyz,🔯 美国故转
-DOMAIN-SUFFIX,163189.xyz,🔯 美国故转
-DOMAIN-SUFFIX,zenfit.cfd,🔯 美国故转
-DOMAIN-SUFFIX,pixman.passwdwork.cc.cd,🔯 美国故转
-DOMAIN-SUFFIX,pixman.us.ci,🔯 美国故转
-DOMAIN-SUFFIX,cdnipcs.com,🔯 美国故转
-DOMAIN-SUFFIX,test96.178.indevs.in,🔯 美国故转
-DOMAIN-SUFFIX,tuta.com,🔯 美国故转
-DOMAIN-SUFFIX,astro.com,🔯 美国故转
-DOMAIN-SUFFIX,veloxmedia.com,🔯 美国故转
-DOMAIN-SUFFIX,newtvsuper.com,🔯 美国故转
-DOMAIN-SUFFIX,iptv.vip-tptv.xyz,🔯 美国故转
-DOMAIN-SUFFIX,migu.8plus.eu.org,🔯 美国故转
-DOMAIN-SUFFIX,nodeseek.com,🔯 美国故转
-DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
-DOMAIN-SUFFIX,catvod.com,🔯 美国故转
-DOMAIN-SUFFIX,go-iptv.ggff.net,🔯 美国故转
-DOMAIN-SUFFIX,go-iptv.us.ci,🔯 美国故转
-DOMAIN-SUFFIX,z2u.com,🔯 美国故转
-DOMAIN-SUFFIX,amazonaws.com,🔯 美国故转
-DOMAIN-SUFFIX,cloudflare.com,🔯 美国故转
-DOMAIN-SUFFIX,qzz.io,🔯 美国故转
-DOMAIN-SUFFIX,bee.tzh911.qzz.io,🔯 美国故转
-DOMAIN-SUFFIX,pendy.dpdns.org,🔯 美国故转
-DOMAIN-SUFFIX,wrod.diver.eu.org,🔯 美国故转
-DOMAIN-SUFFIX,judy.xx.kg,🔯 美国故转
-DOMAIN-SUFFIX,8plus.eu.org,🔯 美国故转
-DOMAIN-SUFFIX,ru8.dpdns.org,🔯 美国故转
-DOMAIN-SUFFIX,vip-tptv.xyz,🔯 美国故转
-DOMAIN-SUFFIX,password.xyz,🔯 美国故转
-DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
-DOMAIN-SUFFIX,diver.eu.org,🔯 美国故转
-DOMAIN-SUFFIX,r2.hfyrw.com,🔯 美国故转
-DOMAIN-SUFFIX,hudsonvalleyhost.com,🔯 美国故转
 
-  
+def convert_domain_list(text):
+    """Clash behavior:domain 域名列表 -> Shadowrocket 裸规则."""
+    rules = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("//"):
+            continue
+        if line.startswith("+."):
+            rules.append(f"DOMAIN-SUFFIX,{line[2:]}")
+        elif line.startswith("*."):
+            rules.append(f"DOMAIN-SUFFIX,{line[2:]}")
+        elif "," in line and line.split(",", 1)[0].strip().upper() in RULE_TYPES:
+            rules.append(line)  # 已是规则行, 原样保留
+        elif "." in line and " " not in line and "/" not in line:
+            rules.append(f"DOMAIN,{line}")
+        # 其余无法识别的行丢弃
+    return rules
 
-DOMAIN-KEYWORD,astro,🔯 狮城故转
-DOMAIN-KEYWORD,wavve,🔯 狮城故转
-DOMAIN-SUFFIX,starhubgo.com,🔯 狮城故转
-DOMAIN-SUFFIX,stream-link.org,🔯 狮城故转
- 
-DOMAIN-SUFFIX,cloudflare.com,🔯 香港故转
-DOMAIN-SUFFIX,cloudflaremirrors.com,🔯 香港故转
-DOMAIN-KEYWORD,mytv265,🔯 香港故转
-DOMAIN-SUFFIX,now.com,🔯 香港故转
-DOMAIN-SUFFIX,now-tv.com,🔯 香港故转
-DOMAIN-SUFFIX,ovhcloud.com,🔯 香港故转
-DOMAIN-SUFFIX,tvb.com,🔯 香港故转
-DOMAIN-SUFFIX,hrtn.net,🔯 香港故转
-DOMAIN-SUFFIX,4gtv.passwd.bond,🔯 香港故转
-DOMAIN-SUFFIX,852851.xyz,🔯 香港故转
 
-IP-CIDR,50.7.158.194/32,🇯🇵 日本故转
-IP-CIDR,123.51.231.132/32,🇹🇼 台湾故转
+def convert_shadowrocket(text):
+    """已是 Shadowrocket 格式: 仅清洗注释与空行."""
+    return [l.strip() for l in text.splitlines()
+            if l.strip() and not l.strip().startswith("#")]
 
-DOMAIN-SUFFIX,lioncdn.net,自动优选
-DOMAIN-SUFFIX,passwdword.xyz,自动优选
 
-# 直连规则
-DOMAIN-SUFFIX,mobaibox.com,DIRECT
-IP-CIDR,183.207.0.0/16,DIRECT,no-resolve
-DOMAIN-SUFFIX,cctv.cn,DIRECT
-DOMAIN-SUFFIX,yangshipin.cn,DIRECT
-DOMAIN-SUFFIX,cmvideo.cn,DIRECT
-""".strip()
+CONVERTERS = {
+    "clash-yaml": convert_clash_yaml,
+    "domain-list": convert_domain_list,
+    "shadowrocket": convert_shadowrocket,
+}
+
+
+def resolve_rule_sets(rule_sets, out_dir):
+    """生成/刷新 rules/<名>.list, 返回 {name: url} 与跳过的集合.
+
+    拉取或转换失败时: 已有旧 .list 则保留复用并警告; 无旧文件则跳过该组,
+    不产生悬空引用。
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    urls, skipped = {}, []
+    for rs in rule_sets:
+        name = rs["name"]
+        if rs["url"]:
+            urls[name] = rs["url"]
+            continue
+        out_path = os.path.join(out_dir, f"{name}.list")
+        if rs["source"]:
+            print(f"规则集 {name}: 拉取 {rs['source']} (format={rs['format']})")
+            text = fetch_text(rs["source"])
+            rules = None
+            if text is not None:
+                conv = CONVERTERS[rs["format"]](text)
+                if rs["format"] == "clash-yaml":
+                    rules, dropped = conv
+                    if dropped:
+                        print(f"  {dropped} 条 Clash 专有规则已丢弃")
+                else:
+                    rules = conv
+                if not rules:
+                    print(f"  转换结果为空, 视为失败")
+                    rules = None
+            if rules is None:
+                if os.path.exists(out_path):
+                    print(f"  保留旧 {name}.list 继续使用")
+                else:
+                    print(f"  无旧文件, 跳过 {name}")
+                    skipped.append(name)
+                    continue
+            else:
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write("\n".join(rules) + "\n")
+                print(f"  {len(rules)} 条 -> {name}.list")
+        else:
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(rs["rules"]) + "\n")
+            print(f"规则集 {name}: {len(rs['rules'])} 条 -> {name}.list")
+        urls[name] = f"{RULES_BASE_URL.rstrip('/')}/{name}.list"
+    return urls, skipped
+
+
+def build_rule_set_lines(rule_sets, urls, skipped):
+    """生成注入 [Rule] 顶端的 RULE-SET 引用行 (保持定义顺序, 跳过失败组)."""
+    return [f"RULE-SET,{urls[rs['name']]},{rs['policy']}"
+            for rs in rule_sets if rs["name"] not in skipped]
 
 
 def fetch_upstream_config(url, retries=3):
@@ -184,7 +247,13 @@ def fetch_upstream_config(url, retries=3):
             else:
                 raise RuntimeError(f"无法获取上游配置文件: {e}")
 
+
 def merge_config():
+    # 0. 解析本地规则组, 生成/刷新远端规则集文件
+    proxy_block, rule_sets = parse_my_rules(MY_RULES_FILE)
+    urls, skipped = resolve_rule_sets(rule_sets, RULES_OUT_DIR)
+    rule_set_lines = build_rule_set_lines(rule_sets, urls, skipped)
+
     content = fetch_upstream_config(UPSTREAM_URL)
 
     # 1. 防止 DNS 锁死
@@ -199,7 +268,7 @@ def merge_config():
         content,
     )
 
-    # 2. 注入全局测速参数：将参数直接拼接到 [General] 标题下方
+    # 2. 注入全局测速参数: 将参数直接拼接到 [General] 标题下方
     general_params = """[General]
 url-test-url = https://www.gstatic.com/generate_204
 url-test-timeout = 5"""
@@ -215,7 +284,7 @@ url-test-timeout = 5"""
     if pg_match:
         upstream_pg_full = pg_match.group(1)
 
-        # 清理上游重复的策略组，避免覆盖自己的 AI 组和核心组
+        # 清理上游重复的策略组, 避免覆盖自己的 AI 组和核心组
         skip_keywords = [
             "节点选择",
             "自动优选",
@@ -254,7 +323,7 @@ url-test-timeout = 5"""
 
         new_pg_block = (
             "[Proxy Group]\n"
-            + MY_CORE_GROUPS
+            + proxy_block
             + "\n"
             + "\n".join(cleaned_upstream_lines)
         )
@@ -264,11 +333,11 @@ url-test-timeout = 5"""
             + content[pg_match.end() :]
         )
 
-    # 4. 插入自定义规则至 [Rule] 顶端
+    # 4. 插入 RULE-SET 引用至 [Rule] 顶端 (规则内容在远端 .list, 主配置只留引用)
     rule_pattern = re.compile(r"(\[Rule\])", re.IGNORECASE)
     if rule_pattern.search(content):
         content = rule_pattern.sub(
-            r"\1\n" + MY_CUSTOM_RULES, content, count=1
+            r"\1\n" + "\n".join(rule_set_lines), content, count=1
         )
 
     # 5. 写入文件
@@ -276,7 +345,9 @@ url-test-timeout = 5"""
         f.write(content)
 
     print(
-        "shadow.conf 整合成功！新增 AI 专用优选组，GitHub/Docker 及 Gemini 规则已强化。"
+        f"shadow.conf 整合成功! {len(rule_set_lines)} 个规则集以 RULE-SET 引用"
+        + (f", {len(skipped)} 组拉取失败已跳过: {', '.join(skipped)}" if skipped else "")
+        + f", 远端规则集见 {RULES_OUT_DIR}/。"
     )
 
 
