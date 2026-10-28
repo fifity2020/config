@@ -13,7 +13,7 @@ RULES_OUT_DIR = "rules"
 #   https://raw.githubusercontent.com/<用户名>/config/main/rules
 # 构建时每个内联 / 转换 / 合并型 RuleSet 生成 rules/<名>.list, 主配置引用
 #   RULE-SET,<RULES_BASE_URL>/<名>.list,<policy>
-RULES_BASE_URL = "https://raw.githubusercontent.com/fifity2020/config/main/rules"
+RULES_BASE_URL = "https://raw.githubusercontent.com/<用户名>/config/main/rules"
 
 # 高倍率节点排除正 (仅作保留, 当前未接入组过滤器: Shadowrocket 不支持前瞻,
 # 接入会清空分组, 详见 2026-10-07 验证)
@@ -328,6 +328,17 @@ def merge_config():
         r"fallback-dns-server\s*=\s*https://dns\.google/dns-query#proxy",
         "fallback-dns-server = https://1.1.1.1/dns-query",
         content,
+    )
+
+    # 1b. 头部日期戳: 上游的更新时间只反映上游改动, 改为本次构建日期 (北京时间),
+    # 否则生成的配置永远显示上游最后一次改动的日期
+    from datetime import datetime, timedelta, timezone
+    build_date = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
+    content = re.sub(
+        r"(#\s*更新时间\s*[:：]\s*)\d{4}-\d{2}-\d{2}",
+        r"\g<1>" + build_date,
+        content,
+        count=1,
     )
 
     # 2. 注入全局测速参数: 将参数直接拼接到 [General] 标题下方
