@@ -9,22 +9,23 @@ UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Ru
 MY_RULES_FILE = "my_rules.conf"
 # 生成的远端规则集输出目录 (提交到仓库后, 由 RULES_BASE_URL 引用)
 RULES_OUT_DIR = "rules"
-# 远端规则集基地址: 填你自己的 GitHub 用户名即可, 仓库名 config、分支 main 已按截图填好:
+# 远端规则集基地址: 填你自己的 GitHub 用户名即可, 仓库名 config、分支 main 已填好:
 #   https://raw.githubusercontent.com/<用户名>/config/main/rules
-# 构建时每个内联 / 转换型 RuleSet 生成 rules/<名>.list, 主配置引用
+# 构建时每个内联 / 转换 / 合并型 RuleSet 生成 rules/<名>.list, 主配置引用
 #   RULE-SET,<RULES_BASE_URL>/<名>.list,<policy>
-RULES_BASE_URL = "https://raw.githubusercontent.com/fifity2020/config/main/rules"
+RULES_BASE_URL = "https://raw.githubusercontent.com/<用户名>/config/main/rules"
 
 # 高倍率节点排除正 (仅作保留, 当前未接入组过滤器: Shadowrocket 不支持前瞻,
 # 接入会清空分组, 详见 2026-10-07 验证)
 NO_HIGH_RATE = r"^(?!.*([2-9]\d*(\.\d+)?|1\.[1-9]\d*)(x|X|倍)).*"
 
-# Clash payload 中可原样转入 Shadowrocket 的规则类型, 其余丢弃并计数警告
+# 可原样转入 Shadowrocket 的规则类型, 其余丢弃并计数警告
+# (覆盖 Clash payload 与远端 .list 中的 IP-ASN 等 Shadowrocket 不支持的类型)
 SR_COMPAT_TYPES = {
     "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD",
     "GEOIP", "IP-CIDR", "IP-CIDR6",
 }
-# payload 行中保留的 flag (其余尾字段, 如 Clash 的策略名, 剥离)
+# 规则行中保留的 flag (其余尾字段, 如 Clash 的策略名, 剥离)
 KEPT_FLAGS = {"no-resolve"}
 
 RULE_TYPES = {
@@ -33,15 +34,20 @@ RULE_TYPES = {
     "URL-REGEX", "USER-AGENT", "PROCESS-NAME", "AND", "OR", "NOT",
 }
 
+# RuleSet 内 `key = value` 行的键 (必须带等号, 避免误伤 URL-REGEX 等规则行)
+KEY_RE = re.compile(r"^(policy|url|source|format)\s*=", re.IGNORECASE)
+
 
 def parse_my_rules(path):
     """解析 my_rules.conf, 返回 (proxy_group_block, rule_sets).
 
-    rule_sets: list of dicts: {name, policy, url, source, format, rules}
-      - url: 远端已有 Shadowrocket 格式规则集, 直接引用, 不下载
+    rule_sets: list of dicts: {name, policy, urls, source, format, rules}
+      - urls: 远端 Shadowrocket 格式列表 (可重复写多行, 构建时拉取合并).
+          仅 1 个 url 且无 source/内联规则时直接引用, 不下载;
+          否则与 source/内联规则合并, 生成 rules/<名>.list.
       - source + format: 远端其他格式规则集, 构建时拉取并转换, 生成 rules/<名>.list
           format: clash-yaml | domain-list | shadowrocket
-      - rules: 内联规则, 生成 rules/<名>.list
+      - rules: 内联规则, 与远端内容合并 (去重) 后生成 rules/<名>.list
     """
     proxy_lines = []
     rule_sets = []
@@ -62,7 +68,7 @@ def parse_my_rules(path):
                 current = ("ruleset", {
                     "name": m.group(1).strip(),
                     "policy": None,
-                    "url": None,
+                    "urls": [],
                     "source": None,
                     "format": "shadowrocket",
                     "rules": [],
@@ -75,22 +81,25 @@ def parse_my_rules(path):
                 proxy_lines.append(line)
             else:
                 rs = current[1]
-                low = stripped.lower()
-                if low.startswith("policy"):
-                    rs["policy"] = stripped.split("=", 1)[1].strip()
-                elif low.startswith("url"):
-                    rs["url"] = stripped.split("=", 1)[1].strip()
-                elif low.startswith("source"):
-                    rs["source"] = stripped.split("=", 1)[1].strip()
-                elif low.startswith("format"):
-                    rs["format"] = stripped.split("=", 1)[1].strip().lower()
+                km = KEY_RE.match(stripped)
+                if km:
+                    key = km.group(1).lower()
+                    val = stripped.split("=", 1)[1].strip()
+                    if key == "policy":
+                        rs["policy"] = val
+                    elif key == "url":
+                        rs["urls"].append(val)
+                    elif key == "source":
+                        rs["source"] = val
+                    elif key == "format":
+                        rs["format"] = val.lower()
                 else:
                     rs["rules"].append(stripped)
 
     for rs in rule_sets:
         if not rs["policy"]:
             raise ValueError(f"RuleSet {rs['name']} 缺少 policy")
-        if not rs["url"] and not rs["source"] and not rs["rules"]:
+        if not rs["urls"] and not rs["source"] and not rs["rules"]:
             raise ValueError(f"RuleSet {rs['name']} 既无 url/source 也无规则")
         if rs["source"] and rs["format"] not in ("clash-yaml", "domain-list", "shadowrocket"):
             raise ValueError(f"RuleSet {rs['name']} format 不支持: {rs['format']}")
@@ -114,6 +123,32 @@ def fetch_text(url, timeout=20):
     return text
 
 
+def normalize_rule(line):
+    """规范化一条裸规则: 校验类型、剥离多余尾字段、保留 no-resolve.
+    返回 None 表示类型不支持或格式无效."""
+    fields = [f.strip() for f in line.split(",")]
+    rtype = fields[0].upper()
+    if rtype not in SR_COMPAT_TYPES or len(fields) < 2 or not fields[1]:
+        return None
+    kept = fields[:2] + [f for f in fields[2:] if f in KEPT_FLAGS]
+    return ",".join(kept)
+
+
+def clean_sr_rules(text):
+    """Shadowrocket 格式 .list -> 裸规则. 返回 (rules, dropped)."""
+    rules, dropped = [], 0
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("//"):
+            continue
+        norm = normalize_rule(line)
+        if norm is None:
+            dropped += 1
+        else:
+            rules.append(norm)
+    return rules, dropped
+
+
 def convert_clash_yaml(text):
     """Clash YAML payload -> Shadowrocket 裸规则. 返回 (rules, dropped)."""
     rules, dropped = [], 0
@@ -134,13 +169,11 @@ def convert_clash_yaml(text):
         # 去引号
         if len(line) >= 2 and line[0] == line[-1] and line[0] in "\"'":
             line = line[1:-1]
-        fields = [f.strip() for f in line.split(",")]
-        rtype = fields[0].upper()
-        if rtype not in SR_COMPAT_TYPES or len(fields) < 2:
+        norm = normalize_rule(line)
+        if norm is None:
             dropped += 1
-            continue
-        kept = fields[:2] + [f for f in fields[2:] if f in KEPT_FLAGS]
-        rules.append(",".join(kept))
+        else:
+            rules.append(norm)
     return rules, dropped
 
 
@@ -156,70 +189,99 @@ def convert_domain_list(text):
         elif line.startswith("*."):
             rules.append(f"DOMAIN-SUFFIX,{line[2:]}")
         elif "," in line and line.split(",", 1)[0].strip().upper() in RULE_TYPES:
-            rules.append(line)  # 已是规则行, 原样保留
+            norm = normalize_rule(line)
+            if norm is not None:
+                rules.append(norm)
         elif "." in line and " " not in line and "/" not in line:
             rules.append(f"DOMAIN,{line}")
         # 其余无法识别的行丢弃
     return rules
 
 
-def convert_shadowrocket(text):
-    """已是 Shadowrocket 格式: 仅清洗注释与空行."""
-    return [l.strip() for l in text.splitlines()
-            if l.strip() and not l.strip().startswith("#")]
-
-
 CONVERTERS = {
     "clash-yaml": convert_clash_yaml,
     "domain-list": convert_domain_list,
-    "shadowrocket": convert_shadowrocket,
+    "shadowrocket": clean_sr_rules,
 }
+
+
+def fetch_remote_rules(url, fmt):
+    """拉取并转换一个远端源. 返回 (rules, dropped), 失败返回 (None, 0)."""
+    text = fetch_text(url)
+    if text is None:
+        return None, 0
+    conv = CONVERTERS[fmt](text)
+    if fmt == "domain-list":
+        return conv, 0
+    return conv
 
 
 def resolve_rule_sets(rule_sets, out_dir):
     """生成/刷新 rules/<名>.list, 返回 {name: url} 与跳过的集合.
 
-    拉取或转换失败时: 已有旧 .list 则保留复用并警告; 无旧文件则跳过该组,
-    不产生悬空引用。
+    单 url 且无 source/内联规则: 直接引用远端, 不下载.
+    其余: 拉取各远端源并与内联规则合并 (内联在前, 去重), 写本地 .list.
+    拉取或转换失败时: 已有旧 .list 则保留复用并警告; 无旧文件且无内联规则则跳过该组,
+    不产生悬空引用; 有内联规则则仅凭内联规则生成.
     """
     os.makedirs(out_dir, exist_ok=True)
     urls, skipped = {}, []
     for rs in rule_sets:
         name = rs["name"]
-        if rs["url"]:
-            urls[name] = rs["url"]
+        # 纯直接引用: 单一 url, 无其他输入
+        if len(rs["urls"]) == 1 and not rs["source"] and not rs["rules"]:
+            urls[name] = rs["urls"][0]
+            print(f"规则集 {name}: 直接引用 {rs['urls'][0]}")
             continue
+
         out_path = os.path.join(out_dir, f"{name}.list")
+        merged, seen = [], set()
+
+        def _add(rule):
+            if rule not in seen:
+                seen.add(rule)
+                merged.append(rule)
+
+        # 内联补充在前
+        for r in rs["rules"]:
+            norm = normalize_rule(r)
+            if norm is not None:
+                _add(norm)
+
+        remote_failed = False
+        for u in rs["urls"]:
+            print(f"规则集 {name}: 拉取 {u}")
+            rules, dropped = fetch_remote_rules(u, "shadowrocket")
+            if rules is None:
+                remote_failed = True
+                continue
+            if dropped:
+                print(f"  {dropped} 条不兼容规则已丢弃")
+            for r in rules:
+                _add(r)
         if rs["source"]:
             print(f"规则集 {name}: 拉取 {rs['source']} (format={rs['format']})")
-            text = fetch_text(rs["source"])
-            rules = None
-            if text is not None:
-                conv = CONVERTERS[rs["format"]](text)
-                if rs["format"] == "clash-yaml":
-                    rules, dropped = conv
-                    if dropped:
-                        print(f"  {dropped} 条 Clash 专有规则已丢弃")
-                else:
-                    rules = conv
-                if not rules:
-                    print(f"  转换结果为空, 视为失败")
-                    rules = None
+            rules, dropped = fetch_remote_rules(rs["source"], rs["format"])
             if rules is None:
-                if os.path.exists(out_path):
-                    print(f"  保留旧 {name}.list 继续使用")
-                else:
-                    print(f"  无旧文件, 跳过 {name}")
-                    skipped.append(name)
-                    continue
+                remote_failed = True
             else:
-                with open(out_path, "w", encoding="utf-8") as f:
-                    f.write("\n".join(rules) + "\n")
-                print(f"  {len(rules)} 条 -> {name}.list")
+                if dropped:
+                    print(f"  {dropped} 条不兼容规则已丢弃")
+                for r in rules:
+                    _add(r)
+
+        if not merged:
+            if os.path.exists(out_path):
+                print(f"  保留旧 {name}.list 继续使用")
+            else:
+                print(f"  无可用规则, 跳过 {name}")
+                skipped.append(name)
+                continue
         else:
             with open(out_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(rs["rules"]) + "\n")
-            print(f"规则集 {name}: {len(rs['rules'])} 条 -> {name}.list")
+                f.write("\n".join(merged) + "\n")
+            print(f"  {len(merged)} 条 -> {name}.list"
+                  + (" (部分远端拉取失败)" if remote_failed else ""))
         urls[name] = f"{RULES_BASE_URL.rstrip('/')}/{name}.list"
     return urls, skipped
 
@@ -295,12 +357,14 @@ url-test-timeout = 5"""
             "日本节点",
             "美国节点",
             "狮城节点",
+            "德国节点",
             "其他节点",
             "香港故转",
             "台湾故转",
             "日本故转",
             "美国故转",
             "狮城故转",
+            "德国故转",
         ]
 
         cleaned_upstream_lines = []
