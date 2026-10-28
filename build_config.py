@@ -13,7 +13,7 @@ RULES_OUT_DIR = "rules"
 #   https://raw.githubusercontent.com/<用户名>/config/main/rules
 # 构建时每个内联 / 转换 / 合并型 RuleSet 生成 rules/<名>.list, 主配置引用
 #   RULE-SET,<RULES_BASE_URL>/<名>.list,<policy>
-RULES_BASE_URL = "https://raw.githubusercontent.com/<用户名>/config/main/rules"
+RULES_BASE_URL = "https://raw.githubusercontent.com/fifity2020/config/main/rules"
 
 # 高倍率节点排除正 (仅作保留, 当前未接入组过滤器: Shadowrocket 不支持前瞻,
 # 接入会清空分组, 详见 2026-10-07 验证)
