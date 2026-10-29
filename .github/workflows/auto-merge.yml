@@ -33,6 +33,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # rules/ 必须一起提交, 否则 RULE-SET 引用的 .list 地址 404
-          git add shadow.conf rules/
+          # shadow-relaxed.conf 是宽松版 DNS 配置, 与 shadow.conf 一起提交
+          git add shadow.conf shadow-relaxed.conf rules/
           git diff --cached --quiet || git commit -m "auto: update shadow.conf [skip ci]"
           git push
