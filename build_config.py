@@ -376,6 +376,7 @@ url-test-timeout = 5"""
             "美国故转",
             "狮城故转",
             "德国故转",
+            "油管视频",
         ]
 
         cleaned_upstream_lines = []
