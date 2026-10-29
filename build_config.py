@@ -9,11 +9,10 @@ UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Ru
 MY_RULES_FILE = "my_rules.conf"
 # 生成的远端规则集输出目录 (提交到仓库后, 由 RULES_BASE_URL 引用)
 RULES_OUT_DIR = "rules"
-# 远端规则集基地址: 填你自己的 GitHub 用户名即可, 仓库名 config、分支 main 已填好:
-#   https://raw.githubusercontent.com/<用户名>/config/main/rules
+# 远端规则集基地址: 仓库 config、分支 main (用户名 fifity2020 已填好)
 # 构建时每个内联 / 转换 / 合并型 RuleSet 生成 rules/<名>.list, 主配置引用
 #   RULE-SET,<RULES_BASE_URL>/<名>.list,<policy>
-RULES_BASE_URL = "https://raw.githubusercontent.com/<用户名>/config/main/rules"
+RULES_BASE_URL = "https://raw.githubusercontent.com/fifity2020/config/main/rules"
 
 # 高倍率节点排除正 (仅作保留, 当前未接入组过滤器: Shadowrocket 不支持前瞻,
 # 接入会清空分组, 详见 2026-10-07 验证)
@@ -36,6 +35,12 @@ RULE_TYPES = {
 
 # RuleSet 内 `key = value` 行的键 (必须带等号, 避免误伤 URL-REGEX 等规则行)
 KEY_RE = re.compile(r"^(policy|url|source|format)\s*=", re.IGNORECASE)
+
+# 策略组定义行 (select/url-test/fallback/...): 即使 [Proxy Group] 标题行被误删,
+# 出现在首个 [RuleSet] 之前的组定义行也按策略组处理, 不静默丢弃
+GROUP_DEF_RE = re.compile(
+    r"^[^#\s].*=\s*(select|url-test|fallback|load-balance|relay)\b", re.IGNORECASE
+)
 
 
 def parse_my_rules(path):
@@ -76,6 +81,11 @@ def parse_my_rules(path):
                 rule_sets.append(current[1])
                 continue
             if current is None:
+                # 兜底: [Proxy Group] 标题行被误删时, 首个 [RuleSet] 之前的
+                # 组定义行仍按策略组处理
+                if GROUP_DEF_RE.match(stripped):
+                    current = ("proxy", None)
+                    proxy_lines.append(line)
                 continue
             if current[0] == "proxy":
                 proxy_lines.append(line)
@@ -104,7 +114,15 @@ def parse_my_rules(path):
         if rs["source"] and rs["format"] not in ("clash-yaml", "domain-list", "shadowrocket"):
             raise ValueError(f"RuleSet {rs['name']} format 不支持: {rs['format']}")
 
-    return "\n".join(proxy_lines).strip(), rule_sets
+    proxy_block = "\n".join(proxy_lines).strip()
+    if not proxy_block:
+        # 策略组为空时宁可构建失败 (旧配置保留), 也不提交一份没有自定义组的坏配置
+        raise ValueError(
+            "my_rules.conf 中没有解析到任何策略组: 请检查 [Proxy Group] 标题行"
+            "是否存在, 组定义行是否在首个 [RuleSet] 之前"
+        )
+
+    return proxy_block, rule_sets
 
 
 def fetch_text(url, timeout=20):
