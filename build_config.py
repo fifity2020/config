@@ -336,10 +336,14 @@ def merge_config():
 
     content = fetch_upstream_config(UPSTREAM_URL)
 
-    # 1. 防止 DNS 锁死
+    # 1. 防止 DNS 锁死: 上游的 cloudflare DoH 走 #proxy 会死锁, 改为直连解析。
+    # system 放第一位: 电信蜂窝网下第三方 DNS(223.5.5.5/119.29.29.29)会被干扰
+    # 至超时, 且 fallback 的 1.1.1.1 DoH 同样不可达, 导致解析全死、节点全红;
+    # 系统 DNS(运营商/路由器下发)在任何网络下都通, 排第一保证不断流,
+    # 其余作后备。代价: 域名查询走运营商 DNS, 不再经加密 DNS。
     content = re.sub(
         r"dns-server\s*=\s*https://cloudflare-dns\.com/dns-query#proxy",
-        "dns-server = 223.5.5.5, 119.29.29.29, https://dns.alidns.com/dns-query",
+        "dns-server = system, 223.5.5.5, 119.29.29.29, https://dns.alidns.com/dns-query",
         content,
     )
     content = re.sub(
