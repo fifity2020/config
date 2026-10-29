@@ -9,6 +9,16 @@ UPSTREAM_URL = "https://raw.githubusercontent.com/LingJingMaster/Shadowrocket-Ru
 MY_RULES_FILE = "my_rules.conf"
 # 生成的远端规则集输出目录 (提交到仓库后, 由 RULES_BASE_URL 引用)
 RULES_OUT_DIR = "rules"
+# DNS 配置 (构建时替换上游的 cloudflare DoH #proxy, 避免 DNS 走代理死锁):
+#   DoT 优先: 加密且用 IP 直连, 无 DoH 主机名解析的先有鸡问题;
+#   system 垫底: 任何网络下都通, 保证不断流。
+# 若电信封 853 导致 DoT 不通, 切宽松版 shadow-relaxed.conf 即可 (见 DNS_SERVERS_RELAXED),
+# 无需重新构建。
+DNS_SERVERS = "tls://223.5.5.5, tls://119.29.29.29, system"
+# 宽松版 DNS: system 首位 (运营商/路由器 DNS, 任何网络都通),
+# 原三者作后备; 代价是域名查询走运营商 DNS, 不再经加密 DNS。
+DNS_SERVERS_RELAXED = "system, 223.5.5.5, 119.29.29.29, https://dns.alidns.com/dns-query"
+
 # 远端规则集基地址: 仓库 config、分支 main (用户名 fifity2020 已填好)
 # 构建时每个内联 / 转换 / 合并型 RuleSet 生成 rules/<名>.list, 主配置引用
 #   RULE-SET,<RULES_BASE_URL>/<名>.list,<policy>
@@ -337,13 +347,11 @@ def merge_config():
     content = fetch_upstream_config(UPSTREAM_URL)
 
     # 1. 防止 DNS 锁死: 上游的 cloudflare DoH 走 #proxy 会死锁, 改为直连解析。
-    # system 放第一位: 电信蜂窝网下第三方 DNS(223.5.5.5/119.29.29.29)会被干扰
-    # 至超时, 且 fallback 的 1.1.1.1 DoH 同样不可达, 导致解析全死、节点全红;
-    # 系统 DNS(运营商/路由器下发)在任何网络下都通, 排第一保证不断流,
-    # 其余作后备。代价: 域名查询走运营商 DNS, 不再经加密 DNS。
+    # 顺序见顶部 DNS_SERVERS: DoT 加密优先, system 垫底保底。
+    # (电信网下明文第三方 DNS 会被干扰至超时, 故不明文 IP 在前。)
     content = re.sub(
         r"dns-server\s*=\s*https://cloudflare-dns\.com/dns-query#proxy",
-        "dns-server = system, 223.5.5.5, 119.29.29.29, https://dns.alidns.com/dns-query",
+        "dns-server = " + DNS_SERVERS,
         content,
     )
     content = re.sub(
@@ -438,12 +446,24 @@ url-test-timeout = 5"""
             r"\1\n" + "\n".join(rule_set_lines), content, count=1
         )
 
-    # 5. 写入文件
+    # 5. 写入文件: 严格版 shadow.conf (DoT DNS)
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
 
+    # 6. 宽松版 shadow-relaxed.conf: 与严格版仅 DNS 一行不同 (system 首位),
+    # 运营商封锁收紧时切此订阅即可, 无需重新构建
+    relaxed = re.sub(
+        r"^dns-server = .*$",
+        "dns-server = " + DNS_SERVERS_RELAXED,
+        content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    with open("shadow-relaxed.conf", "w", encoding="utf-8") as f:
+        f.write(relaxed)
+
     print(
-        f"shadow.conf 整合成功! {len(rule_set_lines)} 个规则集以 RULE-SET 引用"
+        f"shadow.conf 与 shadow-relaxed.conf 整合成功! {len(rule_set_lines)} 个规则集以 RULE-SET 引用"
         + (f", {len(skipped)} 组拉取失败已跳过: {', '.join(skipped)}" if skipped else "")
         + f", 远端规则集见 {RULES_OUT_DIR}/。"
     )

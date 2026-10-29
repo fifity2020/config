@@ -1,0 +1,39 @@
+name: auto-merge
+
+on:
+  push:
+    paths:
+      - "build_config.py"
+      - "my_rules.conf"
+      - ".github/workflows/auto-merge.yml"
+  schedule:
+    # 北京时间每周一 02:00, 按需改
+    - cron: "0 18 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Build shadow.conf and rule lists
+        # 零第三方依赖, 不用 pip install; 需 my_rules.conf 在仓库根目录
+        run: python3 build_config.py
+
+      - name: Commit shadow.conf and rules/
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # rules/ 必须一起提交, 否则 RULE-SET 引用的 .list 地址 404
+          # shadow-relaxed.conf 是宽松版 DNS 配置, 与 shadow.conf 一起提交
+          git add shadow.conf shadow-relaxed.conf rules/
+          git diff --cached --quiet || git commit -m "auto: update shadow.conf [skip ci]"
+          git push
