@@ -1,3 +1,3 @@
 自用openclash\clash-party\shadowsocket配置
 
-利用LingJingMaster仓库的Shadowrocket.conf，action自己的shadow配置。主要加入了一些分流。
+利用LingJingMaster等仓库的Shadowrocket.conf，action自己的shadow配置。主要加入了一些分流，分成普通版和dns防泄漏2个版本。
