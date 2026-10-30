@@ -354,17 +354,28 @@ def merge_config():
         "dns-server = " + DNS_SERVERS,
         content,
     )
-    # 1a. fallback 保持 1.1.1.1 DoH: 2026-10-30 实测 fallback-dns-server = system
-    # 会导致两个版本同时全红 (Safari 也打不开, 但 default.conf 全绿)。
-    # 机制未完全确定 (system 可能不是 fallback 的合法取值, 或与下文
-    # dns-fallback-system = false 冲突), 经验结论: fallback 不要写 system。
+    # 1a. fallback 保持 1.1.1.1 DoH。注意: 2026-10-30 曾据此推断
+    # fallback-dns-server = system 会断 DNS, 后证实是误判——那版根本没到过
+    # 手机 (见 1b), fallback = system 是否可用仍是未知, 暂不试。
     content = re.sub(
         r"fallback-dns-server\s*=\s*https://dns\.google/dns-query#proxy",
         "fallback-dns-server = https://1.1.1.1/dns-query",
         content,
     )
 
-    # 1b. 头部日期戳: 上游的更新时间只反映上游改动, 改为本次构建日期 (北京时间),
+    # 1b. 改写 update-url 为本仓库地址: 小火箭刷新订阅时优先按 update-url 拉取,
+    # 上游文件的 update-url 指向它自己, 不改的话每次刷新都会丢弃生成的配置、
+    # 重新拉回上游原文件 (2026-10-30 实锤: 手机上的 shadow.conf 就是上游原文件,
+    # dns-server 还是 cloudflare #proxy, 两个订阅因此全红)。
+    content = re.sub(
+        r"^update-url\s*=.*$",
+        "update-url = https://raw.githubusercontent.com/fifity2020/config/main/shadow.conf",
+        content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+
+    # 1c. 头部日期戳: 上游的更新时间只反映上游改动, 改为本次构建日期 (北京时间),
     # 否则生成的配置永远显示上游最后一次改动的日期
     from datetime import datetime, timedelta, timezone
     build_date = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
@@ -454,12 +465,19 @@ url-test-timeout = 5"""
     with open("shadow.conf", "w", encoding="utf-8") as f:
         f.write(content)
 
-    # 6. 宽松版 shadow-relaxed.conf: 与严格版仅 DNS 一行不同 (system 首位),
-    # 运营商封锁收紧时切此订阅即可, 无需重新构建
+    # 6. 宽松版 shadow-relaxed.conf: 与严格版仅 DNS 一行与 update-url 不同
+    # (system 首位), 运营商封锁收紧时切此订阅即可, 无需重新构建
     relaxed = re.sub(
         r"^dns-server = .*$",
         "dns-server = " + DNS_SERVERS_RELAXED,
         content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    relaxed = re.sub(
+        r"^update-url\s*=.*$",
+        "update-url = https://raw.githubusercontent.com/fifity2020/config/main/shadow-relaxed.conf",
+        relaxed,
         count=1,
         flags=re.MULTILINE,
     )
