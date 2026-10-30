@@ -354,9 +354,13 @@ def merge_config():
         "dns-server = " + DNS_SERVERS,
         content,
     )
+    # 1a. 第二道兜底: fallback 也指向 system (主 DNS 全死/超时才启用)。
+    # 与 dns-server 列表末尾的 system 是两层独立的兜底, 都留着。
+    # 注意: 上游的 dns-fallback-system = false 是否拦住这层显式 fallback
+    # 未经实测, 需等封锁收紧时看它是否自动救回; 救不回则切宽松版。
     content = re.sub(
         r"fallback-dns-server\s*=\s*https://dns\.google/dns-query#proxy",
-        "fallback-dns-server = https://1.1.1.1/dns-query",
+        "fallback-dns-server = system",
         content,
     )
 
